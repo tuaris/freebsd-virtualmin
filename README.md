@@ -13,7 +13,7 @@ FreeBSD: { enabled: no }
 /usr/local/etc/pkg/repos/Virtualmin.conf
 
 ```json
-Base: {
+Virtualmin: {
 	url: "http://pkg.morante.net/virtualmin/${ABI}",
 	enabled: yes
 }
