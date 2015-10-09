@@ -6,6 +6,9 @@ dns/bind910
 lang/php56
 www/mod_php56
 www/apache24
+mail/postfix
+mail/dovecot2
+mail/procmail
 databases/mysql56-server
 databases/postgresql94-server
 databases/p5-DBD-SQLite2
