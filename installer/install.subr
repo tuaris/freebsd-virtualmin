@@ -312,10 +312,7 @@ usermin_enable="YES"
 	fi
 }
 
-configure_apache() {
-	# Use Apache 2.4
-	sed -i '' -e "s/apache22\//apache24\//" $WEBMIN_CONFIG_DIR/apache/config
-
+setup_apache () {
 	# Enable Modules
 	sed -i '' -e "s/#LoadModule suexec_module/LoadModule suexec_module/" $LOCAL_BASE/etc/apache24/httpd.conf
 	sed -i '' -e "s/#LoadModule actions_module/LoadModule actions_module/" $LOCAL_BASE/etc/apache24/httpd.conf
@@ -325,6 +322,11 @@ configure_apache() {
 
 	# Enable Sample SSL Virtual Host
 	sed -i '' -e "s:#Include etc/apache24/extra/httpd-ssl.conf:Include etc/apache24/extra/httpd-ssl.conf:" $LOCAL_BASE/etc/apache24/httpd.conf
+}
+
+webmin_configure_apache() {
+	# Use Apache 2.4
+	sed -i '' -e "s/apache22\//apache24\//" $WEBMIN_CONFIG_DIR/apache/config
 
 	# Install Sample SSL Certificate and Key using pre-generated Webmin ones
 	openssl x509 -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/apache24/server.crt
@@ -334,7 +336,7 @@ configure_apache() {
 	mkdir -p $LOCAL_BASE/etc/ssl/certs; mkdir -p $LOCAL_BASE/etc/ssl/private
 }
 
-configure_bind() {
+webmin_configure_bind() {
 	# Reconfgigure BIND paths for correct config path if nessecary (FreeBSD 10+)
 	config_path=$(named -V | egrep -o "sysconfdir=[/|A-z]+" | cut -d'=' -f2)
 
