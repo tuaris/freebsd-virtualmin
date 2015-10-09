@@ -5,4 +5,9 @@
 This install script works best with a clean system.  It automaitcly disables standard FreeBSD
 PKG repositories and sets up custom PKG repos.  
 
-Download and run `installer/install.sh` to begin.
+To test
+
+```
+fetch http://ftp.morante.net/pub/FreeBSD/extra/virtualmin/install-beta.sh
+sh install-beta.sh
+```
