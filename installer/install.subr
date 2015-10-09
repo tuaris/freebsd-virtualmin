@@ -38,6 +38,9 @@ setup_webmin () {
 
 	logger_info "Installing Webmin..."
 	runner "$LIB_BASE/webmin/setup.sh $LIB_BASE/webmin"
+
+	# Manually set the theme
+	setconfig "theme=$theme" $WEBMIN_CONFIG_DIR/config
 }
 
 setup_usermin () {
@@ -56,7 +59,7 @@ setup_usermin () {
 	export config_dir var_dir port login crypt ssl perl theme
 
 	logger_info "Installing Usermin..."
-	runner "$LIB_BASE/usermin/setup.sh $LIB_BASE/usermin"	
+	runner "$LIB_BASE/usermin/setup.sh $LIB_BASE/usermin"
 }
 
 install_virtualmin_modules () {
