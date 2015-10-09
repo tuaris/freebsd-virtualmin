@@ -1,0 +1,136 @@
+#!/bin/sh
+
+# Core variables, local base, and Webmin paths
+export LOCAL_BASE=/usr/local
+export CONFIG_BASE=$LOCAL_BASE/etc
+export LIB_BASE=$LOCAL_BASE/lib
+export WEBMIN_CONFIG_DIR=$CONFIG_BASE/webmin
+
+# download()
+# Use $download to download the provided filename or exit with an error.
+download() {
+	if $FETCH -o $TMPDIR $1
+	then
+		success "Download of $1"
+   	return $?
+	else
+		fatal "Failed to download $1."
+	fi
+}
+
+# Fatal error
+fatal () {
+	echo
+	logger_fatal "Fatal Error Occurred: $1"
+	logger_fatal "Cannot continue installation."
+	logger_fatal "Attempting to remove virtualmin repository configuration, so the installation can be "
+	logger_fatal "re-attempted after any problems have been resolved."
+	
+	if [ -x $tempdir ]; then
+		logger_fatal "Removing temporary directory and files."
+		rm -rf $tempdir 
+	fi
+	logger_fatal "If you are unsure of what went wrong, you may wish to review the log"
+	logger_fatal "in $LOG"
+	exit
+}
+
+get_mode () {
+cat <<EOF
+ FULL or MINIMAL INSTALLATION
+ It is possible to install only the minimum set of components and 
+ and perform no configuration changes to existing mail/web/DNS 
+ or packages.  This mode of installation is called the minimal mode
+ because only Webmin, Usermin and the Virtualmin-related modules and
+ themes are installed.  The minimal mode will not modify your
+ existing configuration.  The full install is recommended if
+ this system is a fresh install of the OS.  If your system has
+ a working Virtualmin GPL installation using components other than
+ our defaults, or you already have virtual hosts, users, mailboxes, 
+ etc. configured manually or with another administration tool, the 
+ minimal mode is a much safer choice.
+
+EOF
+
+	printf " Would you like to perform a full installation? (y/n) "
+	if yesno; then mode=full
+	else mode=minimal
+	fi
+
+	echo "Installation type: $mode"
+	sleep 3
+}
+
+# Tests if a honame is FQDN
+is_fully_qualified () {
+	case $1 in
+		localhost.localdomain)
+			logger_info "Hostname cannot be localhost.localdomain."
+			return 1
+		;;
+		*.localdomain)
+			logger_info "Hostname cannot be *.localdomain."
+			return 1
+		;;
+		*.*)
+			logger_info "Hostname OK: fully qualified as $1"
+			return 0
+		;;
+	esac
+	logger_info "Hostname $name is not fully qualified."
+	return 1
+}
+
+# Perform an action, log it, and run the spinner throughout
+runner () {
+	cmd=$1
+	echo "...in progress, please wait..."
+	touch busy
+	$srcdir/spinner busy &
+	if $cmd >> $LOG; then
+		rm busy
+		sleep 1
+		success "$cmd:"
+		return 0
+	else
+		rm busy
+		sleep 1
+		echo "$cmd failed.  Error (if any): $?"
+		echo
+		echo "Displaying the last 15 lines of $LOG to help troubleshoot this problem:"
+		tail -15 $LOG
+		return 1
+	fi
+}
+
+success () {
+	logger_info "$1 Succeeded."
+}
+
+# This function performs a rough uninstallation of Virtualmin
+# It is neither complete, nor correct, but it almost certainly won't break
+# anything.  It is primarily useful for cleaning up a botched install, so you
+# can run the installer again.
+uninstall () {	
+	echo "Done.  There's probably quite a bit of related packages and such left behind"
+	echo "but all of the Virtualmin-specific packages have been removed."
+	exit 0
+}
+
+# Yes no
+yesno () {
+	if [ "$VIRTUALMIN_NONINTERACTIVE" != "" ]; then
+		return 1
+	fi
+	while read line; do
+		case $line in
+			y|Y|Yes|YES|yes|yES|yEs|YeS|yeS) return 0
+			;;
+			n|N|No|NO|no|nO) return 1
+			;;
+			*)
+			printf "\nPlease enter y or n: "
+			;;
+		esac
+	done
+}

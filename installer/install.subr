@@ -1,0 +1,338 @@
+#!/bin/sh
+
+install_core_services() {
+	# Install base services
+	pkg install -y virtualmin usermin bind910 apache24
+
+	# Install PHP
+	pkg install -y php56 mod_php
+}
+
+install_core_utilities() {
+	# Install Supporting Packages
+	pkg install -y webalizer logrotate databases/p5-DBD-SQLite2
+
+	# Logrotate expects this file to exist otherwise it won't run
+	touch /var/log/lastlog
+}
+
+setup_webmin () {
+	logger_info "Setting Up Webmin..."
+
+	# Setup Webmin non-interactivly by presetting some variables
+	config_dir=$WEBMIN_CONFIG_DIR
+	var_dir=/var/log/webmin
+	port=10000
+	login=admin
+	crypt=x
+	ssl=1
+	theme=virtual-server-theme
+	perl=$(which perl)
+
+	export config_dir var_dir port login crypt ssl perl theme
+
+	logger_info "Installing Webmin..."
+	runner "$LIB_BASE/webmin/setup.sh $LIB_BASE/webmin"
+}
+
+setup_usermin () {
+	logger_info "Setting Up Usermin..."	
+
+	# Setup Usermin non-interactivly by presetting some variables
+
+	config_dir=$CONFIG_BASE/usermin
+	var_dir=/var/log/usermin
+	port=20000
+	login=admin
+	crypt=x
+	ssl=1
+	theme=virtual-server-theme
+	perl=$(which perl)
+
+	export config_dir var_dir port login crypt ssl perl theme
+
+	logger_info "Installing Usermin..."
+	runner "$LIB_BASE/usermin/setup.sh $LIB_BASE/usermin"	
+}
+
+install_virtualmin_modules () {
+	# Install Virtulmin-specific modules and themes, as defined in updates.txt
+	logger_info "Installing Virtualmin modules and themes..."
+	repopath=gpl/
+
+	# Download module list
+	download http://${LOGIN}software.virtualmin.com/${repopath}wbm/updates.txt
+
+	# Filter out the virtual-server module since it's already installed
+	grep -v 'virtual-server[[:space:]]' $TMPDIR/updates.txt > $TMPDIR/modules.txt
+
+	# Download and Install each module
+	for modpath in `cut -f 3 $TMPDIR/modules.txt`; do
+
+		# Download the module
+		modfile=`basename $modpath`
+		logger_info "Downloading $modfile"
+		download http://${LOGIN}software.virtualmin.com/$modpath
+
+		# Check if sucessful
+		if [ "$?" != "0" ]; then
+			#logger_info "Download of Webmin module from $modpath failed"
+			echo "Download of Webmin module from $modpath failed"
+		fi
+
+		# Install the module into webmin
+		logger_info "Installing $modfile"
+		$LIB_BASE/webmin/install-module.pl $TMPDIR/$modfile $CONFIG_BASE/webmin >> $LOG
+
+		# Check if sucessful
+		if [ "$?" != "0" ]; then
+			#logger_info "Installation of Webmin module from $modpath failed"
+			echo "Installation of Webmin module from $modpath failed"
+		fi
+
+		# Install the theme module to usermin as well
+		if [ -r $TMPDIR/virtual-server-theme-*.wbt.gz ]; then
+			$LIB_BASE/usermin/install-module.pl $TMPDIR/$modfile $CONFIG_BASE/webmin >> $LOG
+		fi
+
+		# Clean up
+		rm -f $TMPDIR/$modfile
+	done
+}
+
+install_virtualmin () {
+	# Configure Webmin to use updates.txt
+	logger_info "Configuring Webmin to use Virtualmin updates service..."
+	echo "upsource=http://software.virtualmin.com/${repopath}wbm/updates.txt	http://www.webmin.com/updates/updates.txt" >>$webmin_config_dir/webmin/config
+	if [ -n "$LOGIN" ]; then
+		echo "upuser=$SERIAL" >>$webmin_config_dir/webmin/config
+		echo "uppass=$KEY" >>$webmin_config_dir/webmin/config
+	fi
+	echo "upthird=1" >>$webmin_config_dir/webmin/config
+	echo "upshow=1" >>$webmin_config_dir/webmin/config
+
+	# Configure Webmin to know where apache22 lives
+	logger_info "Configuring Webmin Apache module..."
+	sed -i -e "s/apache\//apache22\//" $webmin_config_dir/apache/config
+	# Tell Webmin about a great wrongness in the force
+	if grep pid_file $webmin_config_dir/apache/config; then
+		sed -i -e "s/pid_file=.*/pid_file=\/var\/run\/httpd.pid/" $webmin_config_dir/apache/config
+	else
+		echo "pid_file=/var/run/httpd.pid" >> $webmin_config_dir/apache/config
+	fi
+	sed -i -e "s/httpd_dir=.*/httpd_dir=\/usr\/local/" $webmin_config_dir/apache/config
+	setconfig "stop_cmd=/usr/local/etc/rc.d/apache22 stop" $webmin_config_dir/apache/config
+	setconfig "start_cmd=/usr/local/etc/rc.d/apache22 start" $webmin_config_dir/apache/config
+	setconfig "graceful_cmd=/usr/local/etc/rc.d/apache22 reload" $webmin_config_dir/apache/config
+	setconfig "apply_cmd=/usr/local/etc/rc.d/apache22 restart" $webmin_config_dir/apache/config
+	
+	# Configure Webmin to know how to stop and start MySQL
+	setconfig "start_cmd=/usr/local/etc/rc.d/mysql-server start" $webmin_config_dir/mysql/config
+	setconfig "stop_cmd=/usr/local/etc/rc.d/mysql-server stop" $webmin_config_dir/mysql/config
+
+	# Configure Webmin to know Usermin lives in /usr/local/etc/usermin
+	sed -i -e "s/usermin_dir=.*/usermin_dir=\/usr\/local\/etc\/usermin/" $webmin_config_dir/usermin/config
+
+	# Add environment settings so that API scripts work
+	if grep -qv WEBMIN_CONFIG /etc/profile; then 
+		echo "export WEBMIN_CONFIG=/usr/local/etc/webmin" >>/etc/profile
+	fi
+	if grep -qv WEBMIN_CONFIG /etc/csh.cshrc; then
+		echo "setenv WEBMIN_CONFIG '/usr/local/etc/webmin'" >>/etc/csh.cshrc
+	fi
+
+	# Dovecot won't start with our default config without an SSL cert
+	testmkdir /etc/ssl/certs/; testmkdir /etc/ssl/private
+	openssl x509 -in $webmin_base/webmin/miniserv.pem > /etc/ssl/certs/dovecot.pem
+	openssl rsa -in $webmin_base/webmin/miniserv.pem > /etc/ssl/private/dovecot.pem
+
+	# It's possible to get here without address being defined
+	. /etc/rc.conf
+	primaryiface=${primaryiface:=`echo $network_interfaces | cut -d" " -f1`}
+	address=${address:=`/sbin/ifconfig $primaryiface | grep "inet " | cut -d" " -f2`}
+	# Tons of syntax errors in the default Apache configuration files.
+	# Seriously?  Syntax errors?
+	vhostsconf=/usr/local/etc/apache22/extra/httpd-vhosts.conf
+	sed -i -e "s/NameVirtualHost \*:80/NameVirtualHost $address:80/" $vhostsconf
+	sed -i -e "s/VirtualHost \*:80/VirtualHost $address:80/" $vhostsconf
+	sed -i -e "s#CustomLog \"/var/log/dummy-host.example.com-access_log common\"#CustomLog \"/var/log/dummy-host.example.com-access_log\" common#" $vhostsconf
+	sed -i -e "s#CustomLog \"/var/log/dummy-host2.example.com-access_log common\"#CustomLog \"/var/log/dummy-host2.example.com-access_log\" common#" $vhostsconf
+	sed -i -e "s#/usr/local/docs/dummy-host.example.com#/usr/local/www/apache22/data#" $vhostsconf
+	sed -i -e "s#/usr/local/docs/dummy-host2.example.com#/usr/local/www/apache22/data#" $vhostsconf
+	# mod_dav loaded twice.  No idea why, but luckily, they have slightly
+	# different spacing, so we can strip out just one of 'em.
+	sed -i -e "s#LoadModule dav_module         libexec/apache22/mod_dav.so##" /usr/local/etc/apache22/httpd.conf
+
+	# Dummy SSL cert, if none exists
+	testcp /etc/ssl/certs/dovecot.pem /usr/local/etc/apache22/server.crt
+	testcp /etc/ssl/private/dovecot.pem /usr/local/etc/apache22/server.key
+
+	# PostgreSQL needs to be initialized
+	logger_info "Initializing postgresql database..."
+	runner "/usr/local/etc/rc.d/postgresql initdb"
+
+	# Webmin <=1.411 doesn't know the right paths
+	setconfig "stop_cmd=/usr/local/etc/rc.d/postgresql stop" $webmin_config_dir/postgresql/config
+	setconfig "start_cmd=/usr/local/etc/rc.d/postgresql start" $webmin_config_dir/postgresql/config
+	setconfig "setup_cmd=/usr/local/etc/rc.d/postgresql initdb" $webmin_config_dir/postgresql/config
+
+
+	# Virtualmin configuration
+	export WEBMIN_CONFIG=/usr/local/etc/webmin
+	$download http://software.virtualmin.com/lib/virtualmin-base-standalone.pl
+	perl virtualmin-base-standalone.pl install>>$LOG
+
+	# Virtualmin can't guess the interface on FreeBSD (and neither can this
+	# script, but it pretends)
+	logger_info "Detecting network interface on FreeBSD is unreliable.  Be sure to check the"
+	logger_info "interface in module configuration before creating any virtual servers."
+	sed -i -e "s/iface=.*/iface=$primaryiface/" $webmin_config_dir/virtual-server/config
+
+	return 0
+}
+
+post_install_tasks(){
+
+	# Load accept filter into kernel
+	touch /boot/loader.conf
+	if ! grep -qv 'accf_http_load="YES"' /boot/loader.conf; then
+		echo 'accf_http_load="YES"' >>/boot/loader.conf
+		kldload accf_http
+	fi
+
+	# Setup Default MySQL Settings
+	logger_info "Copying default my.cnf and initializing database..."
+	testcp /usr/local/share/mysql/my-medium.cnf /usr/local/etc/my.cnf
+	ln -s /usr/local/etc/my.cnf /etc/my.cnf
+	testmkdir /var/db/mysql
+	logger_info `/usr/local/etc/rc.d/mysql-server start`
+	
+	# SpamAssassin needs a config file
+	testcp /usr/local/etc/mail/spamassassin/local.cf.sample /usr/local/etc/mail/spamassassin/local.cf
+	
+	# Clam needs fresh database
+	logger_info "Initializing the clamav database.  This may take a long time..."
+	freshclam
+
+	# awstats
+	testmkdir /usr/local/etc/awstats
+	testcp /usr/local/www/awstats/cgi-bin/awstats.model.conf /usr/local/etc/awstats/awstats.model.conf
+
+	# www user needs a shell to run mailman commands
+	chpass -s /bin/sh www	
+
+	# procmail-wrapper download and install
+	logger_info "Installing procmail-wrapper."	
+	if $download http://ftp.morante.net/pub/FreeBSD/extra/virtualmin/$os_version/$arch/procmail-wrapper
+	then
+		logger_info "Pre-Compiled procmail-wrapper sucesfully downloaded"
+	else
+		# No Pre-Compiled version avaialbe, try and download source and compile
+		logger_info "No Pre-Build procmail-wrapper available for this FreeBSD platform"
+		logger_info "Building procmail-wrapper"
+		mkdir procmail-wrapper-build
+		cd procmail-wrapper-build
+		$download http://ftp.morante.net/pub/FreeBSD/extra/virtualmin/noarch/procmail-wrapper.c
+		cc procmail-wrapper.c -o procmail-wrapper
+		mv procmail-wrapper ../
+		cd ..
+		rm -Rf procmail-wrapper-build
+	fi
+	mv procmail-wrapper /usr/local/bin/
+	chmod 6755 /usr/local/bin/procmail-wrapper
+	if [ ! -f /usr/bin/procmail-wrapper ]; then
+		ln -sf /usr/local/bin/procmail-wrapper /usr/bin/procmail-wrapper
+	fi
+
+	return 0
+}
+
+pre_install_tasks () {
+	# Pre-Installation Tasks
+	logger_info "Configuring package manager for $real_os_type $real_os_version..."
+	
+	export POSTFIX_DEFAULT_MTA=yes
+
+	if [ ! -d /usr/ports ]; then
+		if [ ! -d /usr/ports/lang/apache22 ]; then
+			logger_info " You don't have the ports system installed.  Installation cannot  "
+			logger_info " complete without the ports system.  Would you like to fetch "
+			logger_info " ports now using portsnap?  (This may take a long time.)"
+			logger_info " (y/n)"
+			if ! yesno; then 
+				logger_info " Exiting.  Please install the ports system using portsnap, and"
+				logger_info " run this script again."
+				exit
+			fi
+			portsnap fetch; portsnap extract
+		fi
+	fi
+	
+	return 0
+}
+
+# Enable services at boot
+enable_services() {
+	# If there is an rc.conf.d directory, use that
+	# Otherwise use the regular rc.conf file.
+	if [ -e /etc/rc.conf.d ]; then
+		path="/etc/rc.conf.d/virtualmin.conf"
+		# Truncate first
+		echo "" > $path
+	else
+		path="/etc/rc.conf"
+	fi
+
+	# Force becuase it's not working otherwise
+	path="/etc/rc.conf"
+
+	# Create temporary file with content
+	echo '
+
+# Virtualmin
+apache24_enable="YES" 
+named_enable="YES" 
+webmin_enable="YES" 
+usermin_enable="YES" 
+' > $TMPDIR/virtualmin.rc.conf
+
+	# Avoid Duplicating
+	fgrep '# Virtualmin' $path >/dev/null
+	if [ "$?" != 0 ]; then
+		# Write content to correct path (must be appended)
+		cat $TMPDIR/virtualmin.rc.conf >> $path
+	fi
+}
+
+configure_apache() {
+	# Use Apache 2.4
+	sed -i '' -e "s/apache22\//apache24\//" $WEBMIN_CONFIG_DIR/apache/config
+
+	# Enable Modules
+	sed -i '' -e "s/#LoadModule suexec_module/LoadModule suexec_module/" $LOCAL_BASE/etc/apache24/httpd.conf
+	sed -i '' -e "s/#LoadModule actions_module/LoadModule actions_module/" $LOCAL_BASE/etc/apache24/httpd.conf
+	sed -i '' -e "s/#LoadModule rewrite_module/LoadModule rewrite_module/" $LOCAL_BASE/etc/apache24/httpd.conf
+	sed -i '' -e "s/#LoadModule ssl_module/LoadModule ssl_module/" $LOCAL_BASE/etc/apache24/httpd.conf
+	sed -i '' -e "s/#LoadModule socache_shmcb_module/LoadModule socache_shmcb_module/" $LOCAL_BASE/etc/apache24/httpd.conf
+
+	# Enable Sample SSL Virtual Host
+	sed -i '' -e "s:#Include etc/apache24/extra/httpd-ssl.conf:Include etc/apache24/extra/httpd-ssl.conf:" $LOCAL_BASE/etc/apache24/httpd.conf
+
+	# Install Sample SSL Certificate and Key using pre-generated Webmin ones
+	openssl x509 -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/apache24/server.crt
+	openssl rsa -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/apache24/server.key
+
+	# SSL store
+	mkdir -p $LOCAL_BASE/etc/ssl/certs; mkdir -p $LOCAL_BASE/etc/ssl/private
+}
+
+configure_bind() {
+	# Reconfgigure BIND paths for correct config path if nessecary (FreeBSD 10+)
+	config_path=$(named -V | egrep -o "sysconfdir=[/|A-z]+" | cut -d'=' -f2)
+
+	if [ ! -z $config_path ]; then
+		setconfig "named_path=$(which named)" $WEBMIN_CONFIG_DIR/bind8/config
+		setconfig "named_conf=${config_path}/named.conf" $WEBMIN_CONFIG_DIR/bind8/config
+		setconfig "rndc_conf=${config_path}/rndc.conf" $WEBMIN_CONFIG_DIR/bind8/config
+	fi
+}

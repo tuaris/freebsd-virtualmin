@@ -1,0 +1,31 @@
+#!/bin/sh
+
+sp0="/"
+sp1="-"
+sp2="\\"
+sp3="|"
+
+esc=""
+reset="${esc}[0m"
+
+while [ -e $1 ]; do
+
+	printf "$sp0"
+	printf "\b"
+	sleep .2
+
+	printf "$sp1"
+	printf "\b"
+	sleep .2
+
+	printf "$sp2"
+	printf "\b"
+	sleep .2
+
+	printf "$sp3"
+	printf "\b"
+	sleep .2
+done
+
+printf "\b"
+echo

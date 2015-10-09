@@ -2,20 +2,7 @@
 
 ## Still under active development.
 
-Requires that you setup custom PKG repos
+This install script works best with a clean system.  It automaitcly disables standard FreeBSD
+PKG repositories and sets up custom PKG repos.  
 
-/usr/local/etc/pkg/repos/FreeBSD.conf
-
-```json
-FreeBSD: { enabled: no }
-```
-
-/usr/local/etc/pkg/repos/Virtualmin.conf
-
-```json
-Virtualmin: {
-	url: "http://pkg.morante.net/virtualmin/${ABI}",
-	enabled: yes
-}
-```
-
+Download and run `installer/install.sh` to begin.

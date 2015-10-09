@@ -1,0 +1,106 @@
+#!/bin/sh
+
+# Detects the System's primary IP address
+detect_ip () {
+	primaryaddr=`/sbin/ifconfig | grep inet | cut -d " " -f 2 | head -n1`
+	if [ $primaryaddr ]; then
+		logger_info "Primary address detected as $primaryaddr"
+		address=$primaryaddr
+		return 0
+	else
+		logger_info "Unable to determine IP address of primary interface."
+		echo "Please enter the name of your primary network interface: "
+		read primaryinterface
+		primaryaddr=`/sbin/ifconfig $primaryinterface | grep 'inet' | cut -d " " -f2 | head -n1`
+		if [ "$primaryaddr" = "" ]; then
+			# Try again with FreeBSD format
+			primaryaddr=`/sbin/ifconfig $primaryinterface|grep 'inet' | awk '{ print $2 }'`
+		fi
+		if [ $primaryaddr ]; then
+			logger_info "Primary address detected as $primaryaddr"
+			address=$primaryaddr
+		else
+			fatal "Unable to determine IP address of selected interface.  Cannot continue."
+		fi
+		return 0
+	fi
+}
+
+# Set a Webmin directive or add it if it doesn't exist
+setconfig () {
+	sc_config=$2
+	sc_value=$1
+	sc_directive=`echo $sc_value | cut -d'=' -f1`
+	if grep -q $sc_directive $2; then
+		sed -i -e "s#$sc_directive.*#$sc_value#" $sc_config
+	else
+		echo $1 >> $2
+	fi
+}
+
+# Sets the system hostname
+set_hostname () {
+	i=0
+	while [ $i -eq 0 ]; do
+		if [ "$forcehostname" = "" ]; then
+			printf "Please enter a fully qualified hostname (for example, host.example.com): "
+			read line
+		else
+			logger_info "Setting hostname to $forcehostname"
+			line=$forcehostname
+		fi
+		if ! is_fully_qualified $line; then
+			logger_info "Hostname $line is not fully qualified."
+		else
+			hostname $line
+			detect_ip
+			if grep $address /etc/hosts; then
+				logger_info "Entry for IP $address exists in /etc/hosts."
+				logger_info "Updating with new hostname."
+				shortname=`echo $line | cut -d"." -f1`
+				sed -i "s/^$address\([\s\t]+\).*$/$address\1$line\t$shortname/" /etc/hosts
+			else
+				logger_info "Adding new entry for hostname $line on $address to /etc/hosts."
+				printf "$address\t$line\t$shortname\n" >> /etc/hosts
+			fi
+		i=1
+	fi
+	done
+}
+
+# Setup Package Repositries
+setup_pkg_repos() {
+	# Bootstrap PKG if needed
+	pkg -N
+	if [ $? == 1 ]; then
+		export ASSUME_ALWAYS_YES=YES
+		pkg bootstrap
+		unset ASSUME_ALWAYS_YES
+	fi
+
+	mkdir -p $CONFIG_BASE/pkg/repos/
+
+	# Disable FreeBSD standard repository
+	echo 'FreeBSD: { enabled: no }' > $CONFIG_BASE/pkg/repos/FreeBSD.conf
+
+	# Enable Virtualman repository
+	echo -e 'Virtualmin: {\n\t url: "http://pkg.morante.net/virtualmin/${ABI}",\n\t enabled: yes\n}' > $CONFIG_BASE/pkg/repos/Virtualmin.conf
+
+	# Update repositories
+	pkg update
+}
+
+# Copy a file if the destination doesn't exist
+testcp () {
+	if [ ! -e $2 ]; then
+		cp $1 $2
+	fi
+}
+
+# mkdir if it doesn't exist
+testmkdir () {
+	if [ ! -d $1 ]; then
+		mkdir -p $1
+	fi
+}
+
