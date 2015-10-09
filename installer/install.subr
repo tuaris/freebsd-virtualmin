@@ -41,6 +41,7 @@ setup_webmin () {
 
 	# Manually set the theme
 	setconfig "theme=$theme" $WEBMIN_CONFIG_DIR/config
+	setconfig "preroot=$theme" $WEBMIN_CONFIG_DIR/miniserv.conf
 }
 
 setup_usermin () {
