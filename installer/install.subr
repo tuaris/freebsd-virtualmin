@@ -334,6 +334,15 @@ webmin_configure_apache() {
 
 	# SSL store
 	mkdir -p $LOCAL_BASE/etc/ssl/certs; mkdir -p $LOCAL_BASE/etc/ssl/private
+
+	# Re-Run Post-Install script for Apache Webmin Module
+	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl apache)
+
+	# Update ACLs
+	env perl $LIB_BASE/newmods.pl $WEBMIN_CONFIG_DIR apache
+
+	# Manually update cache file
+	setconfig "apache=1" $WEBMIN_CONFIG_DIR/installed.cache
 }
 
 webmin_configure_bind() {
@@ -345,4 +354,13 @@ webmin_configure_bind() {
 		setconfig "named_conf=${config_path}/named.conf" $WEBMIN_CONFIG_DIR/bind8/config
 		setconfig "rndc_conf=${config_path}/rndc.conf" $WEBMIN_CONFIG_DIR/bind8/config
 	fi
+
+	# Re-Run Post-Install script for BIND Webmin Module
+	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl bind8)
+
+	# Update ACLs
+	env perl $LIB_BASE/newmods.pl $WEBMIN_CONFIG_DIR bind8
+
+	# Manually update cache file
+	setconfig "bind8=1" $WEBMIN_CONFIG_DIR/installed.cache
 }
