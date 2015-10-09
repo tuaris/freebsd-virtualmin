@@ -1,0 +1,13 @@
+devel/log4sh
+sysutils/usermin
+sysutils/webmin
+sysutils/virtualmin
+dns/bind910
+lang/php56
+www/mod_php56
+www/apache24
+databases/mysql56-server
+databases/postgresql94-server
+databases/p5-DBD-SQLite2
+sysutils/logrotate
+www/webalizer
