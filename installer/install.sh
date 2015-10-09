@@ -140,7 +140,11 @@ logger_info "FreeBSD Operating system version: $OS_VERSION"
 install_core_services
 install_core_utilities
 
+disable_sendmail
+disable_sendmail_tasks
+
 setup_apache
+setup_postfix
 setup_webmin
 setup_usermin
 

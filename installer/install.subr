@@ -6,6 +6,11 @@ install_core_services() {
 
 	# Install PHP
 	pkg install -y php56 mod_php56
+
+	# Install Mail services
+	export POSTFIX_DEFAULT_MTA=yes
+	export BATCH=yes
+	pkg install -y mail/postfix mail/dovecot2 mail/procmail
 }
 
 install_core_utilities() {
@@ -14,6 +19,20 @@ install_core_utilities() {
 
 	# Logrotate expects this file to exist otherwise it won't run
 	touch /var/log/lastlog
+}
+
+setup_postfix () {
+	#configure for virtual hosting
+	postconf -e virtual_alias_maps=hash:$CONFIG_BASE/postfix/virtual
+	touch $CONFIG_BASE/postfix/virtual
+	postmap hash:$CONFIG_BASE/postfix/virtual
+
+	# Use Maildir's
+	postconf home_mailbox=Maildir/
+
+	# Setup SASL
+	postconf -e smtpd_sasl_type=dovecot
+	postconf -e smtpd_sasl_path=private/auth
 }
 
 setup_webmin () {
@@ -253,63 +272,6 @@ post_install_tasks(){
 	fi
 
 	return 0
-}
-
-pre_install_tasks () {
-	# Pre-Installation Tasks
-	logger_info "Configuring package manager for $real_os_type $real_os_version..."
-	
-	export POSTFIX_DEFAULT_MTA=yes
-
-	if [ ! -d /usr/ports ]; then
-		if [ ! -d /usr/ports/lang/apache22 ]; then
-			logger_info " You don't have the ports system installed.  Installation cannot  "
-			logger_info " complete without the ports system.  Would you like to fetch "
-			logger_info " ports now using portsnap?  (This may take a long time.)"
-			logger_info " (y/n)"
-			if ! yesno; then 
-				logger_info " Exiting.  Please install the ports system using portsnap, and"
-				logger_info " run this script again."
-				exit
-			fi
-			portsnap fetch; portsnap extract
-		fi
-	fi
-	
-	return 0
-}
-
-# Enable services at boot
-enable_services() {
-	# If there is an rc.conf.d directory, use that
-	# Otherwise use the regular rc.conf file.
-	if [ -e /etc/rc.conf.d ]; then
-		path="/etc/rc.conf.d/virtualmin.conf"
-		# Truncate first
-		echo "" > $path
-	else
-		path="/etc/rc.conf"
-	fi
-
-	# Force becuase it's not working otherwise
-	path="/etc/rc.conf"
-
-	# Create temporary file with content
-	echo '
-
-# Virtualmin
-apache24_enable="YES" 
-named_enable="YES" 
-webmin_enable="YES" 
-usermin_enable="YES" 
-' > $TMPDIR/virtualmin.rc.conf
-
-	# Avoid Duplicating
-	fgrep '# Virtualmin' $path >/dev/null
-	if [ "$?" != 0 ]; then
-		# Write content to correct path (must be appended)
-		cat $TMPDIR/virtualmin.rc.conf >> $path
-	fi
 }
 
 setup_apache () {
