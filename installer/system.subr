@@ -26,6 +26,85 @@ detect_ip () {
 	fi
 }
 
+# Disables sendmail
+disable_sendmail() {
+	path="/etc/rc.conf"
+
+	# Create temporary file with content
+	echo '
+
+# Disable Sendmail
+sendmail_enable="NO"
+sendmail_submit_enable="NO"
+sendmail_outbound_enable="NO"
+sendmail_msp_queue_enable="NO"
+' > $TMPDIR/disable-sendmail.rc.conf
+
+	# Avoid Duplicating
+	fgrep '# Disable Sendmail' $path >/dev/null
+	if [ "$?" != 0 ]; then
+		# Write content to correct path (must be appended)
+		cat $TMPDIR/disable-sendmail.rc.conf >> $path
+	fi
+}
+
+# Disable some sendmail specific daily maintenance routines
+disable_sendmail_tasks() {
+	path="/etc/periodic.conf"
+
+	# Create temporary file with content
+	echo '
+
+# Disable Sendmail
+daily_clean_hoststat_enable="NO"
+daily_status_mail_rejects_enable="NO"
+daily_status_include_submit_mailq="NO"
+daily_submit_queuerun="NO"
+' > $TMPDIR/disable-sendmail.periodic.conf
+
+	# Avoid Duplicating
+	fgrep '# Disable Sendmail' $path >/dev/null
+	if [ "$?" != 0 ]; then
+		# Write content to correct path (must be appended)
+		cat $TMPDIR/disable-sendmail.periodic.conf >> $path
+	fi
+}
+
+# Enable services at boot
+enable_services() {
+	# If there is an rc.conf.d directory, use that
+	# Otherwise use the regular rc.conf file.
+	if [ -e /etc/rc.conf.d ]; then
+		path="/etc/rc.conf.d/virtualmin.conf"
+		# Truncate first
+		echo "" > $path
+	else
+		path="/etc/rc.conf"
+	fi
+
+	# Force becuase it's not working otherwise
+	path="/etc/rc.conf"
+
+	# Create temporary file with content
+	echo '
+
+# Virtualmin
+apache24_enable="YES"
+named_enable="YES"
+webmin_enable="YES"
+usermin_enable="YES"
+postfix_enable="YES"
+dovecot_enable="YES"
+' > $TMPDIR/virtualmin.rc.conf
+
+	# Avoid Duplicating
+	fgrep '# Virtualmin' $path >/dev/null
+	if [ "$?" != 0 ]; then
+		# Write content to correct path (must be appended)
+		cat $TMPDIR/virtualmin.rc.conf >> $path
+	fi
+}
+
 # Set a Webmin directive or add it if it doesn't exist
 setconfig () {
 	sc_config=$2

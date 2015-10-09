@@ -6,6 +6,11 @@ install_core_services() {
 
 	# Install PHP
 	pkg install -y php56 mod_php56
+
+	# Install Mail services
+	export POSTFIX_DEFAULT_MTA=yes
+	export BATCH=yes
+	pkg install -y mail/postfix mail/dovecot2 mail/procmail
 }
 
 install_core_utilities() {
@@ -14,6 +19,20 @@ install_core_utilities() {
 
 	# Logrotate expects this file to exist otherwise it won't run
 	touch /var/log/lastlog
+}
+
+setup_postfix () {
+	#configure for virtual hosting
+	postconf -e virtual_alias_maps=hash:$CONFIG_BASE/postfix/virtual
+	touch $CONFIG_BASE/postfix/virtual
+	postmap hash:$CONFIG_BASE/postfix/virtual
+
+	# Use Maildir's
+	postconf home_mailbox=Maildir/
+
+	# Setup SASL
+	postconf -e smtpd_sasl_type=dovecot
+	postconf -e smtpd_sasl_path=private/auth
 }
 
 setup_webmin () {
@@ -41,6 +60,7 @@ setup_webmin () {
 
 	# Manually set the theme
 	setconfig "theme=$theme" $WEBMIN_CONFIG_DIR/config
+	setconfig "preroot=$theme" $WEBMIN_CONFIG_DIR/miniserv.conf
 }
 
 setup_usermin () {
@@ -254,67 +274,7 @@ post_install_tasks(){
 	return 0
 }
 
-pre_install_tasks () {
-	# Pre-Installation Tasks
-	logger_info "Configuring package manager for $real_os_type $real_os_version..."
-	
-	export POSTFIX_DEFAULT_MTA=yes
-
-	if [ ! -d /usr/ports ]; then
-		if [ ! -d /usr/ports/lang/apache22 ]; then
-			logger_info " You don't have the ports system installed.  Installation cannot  "
-			logger_info " complete without the ports system.  Would you like to fetch "
-			logger_info " ports now using portsnap?  (This may take a long time.)"
-			logger_info " (y/n)"
-			if ! yesno; then 
-				logger_info " Exiting.  Please install the ports system using portsnap, and"
-				logger_info " run this script again."
-				exit
-			fi
-			portsnap fetch; portsnap extract
-		fi
-	fi
-	
-	return 0
-}
-
-# Enable services at boot
-enable_services() {
-	# If there is an rc.conf.d directory, use that
-	# Otherwise use the regular rc.conf file.
-	if [ -e /etc/rc.conf.d ]; then
-		path="/etc/rc.conf.d/virtualmin.conf"
-		# Truncate first
-		echo "" > $path
-	else
-		path="/etc/rc.conf"
-	fi
-
-	# Force becuase it's not working otherwise
-	path="/etc/rc.conf"
-
-	# Create temporary file with content
-	echo '
-
-# Virtualmin
-apache24_enable="YES" 
-named_enable="YES" 
-webmin_enable="YES" 
-usermin_enable="YES" 
-' > $TMPDIR/virtualmin.rc.conf
-
-	# Avoid Duplicating
-	fgrep '# Virtualmin' $path >/dev/null
-	if [ "$?" != 0 ]; then
-		# Write content to correct path (must be appended)
-		cat $TMPDIR/virtualmin.rc.conf >> $path
-	fi
-}
-
-configure_apache() {
-	# Use Apache 2.4
-	sed -i '' -e "s/apache22\//apache24\//" $WEBMIN_CONFIG_DIR/apache/config
-
+setup_apache () {
 	# Enable Modules
 	sed -i '' -e "s/#LoadModule suexec_module/LoadModule suexec_module/" $LOCAL_BASE/etc/apache24/httpd.conf
 	sed -i '' -e "s/#LoadModule actions_module/LoadModule actions_module/" $LOCAL_BASE/etc/apache24/httpd.conf
@@ -324,6 +284,11 @@ configure_apache() {
 
 	# Enable Sample SSL Virtual Host
 	sed -i '' -e "s:#Include etc/apache24/extra/httpd-ssl.conf:Include etc/apache24/extra/httpd-ssl.conf:" $LOCAL_BASE/etc/apache24/httpd.conf
+}
+
+webmin_configure_apache() {
+	# Use Apache 2.4
+	sed -i '' -e "s/apache22\//apache24\//" $WEBMIN_CONFIG_DIR/apache/config
 
 	# Install Sample SSL Certificate and Key using pre-generated Webmin ones
 	openssl x509 -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/apache24/server.crt
@@ -331,9 +296,18 @@ configure_apache() {
 
 	# SSL store
 	mkdir -p $LOCAL_BASE/etc/ssl/certs; mkdir -p $LOCAL_BASE/etc/ssl/private
+
+	# Re-Run Post-Install script for Apache Webmin Module
+	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl apache)
+
+	# Update ACLs
+	env perl $LIB_BASE/newmods.pl $WEBMIN_CONFIG_DIR apache
+
+	# Manually update cache file
+	setconfig "apache=1" $WEBMIN_CONFIG_DIR/installed.cache
 }
 
-configure_bind() {
+webmin_configure_bind() {
 	# Reconfgigure BIND paths for correct config path if nessecary (FreeBSD 10+)
 	config_path=$(named -V | egrep -o "sysconfdir=[/|A-z]+" | cut -d'=' -f2)
 
@@ -342,4 +316,13 @@ configure_bind() {
 		setconfig "named_conf=${config_path}/named.conf" $WEBMIN_CONFIG_DIR/bind8/config
 		setconfig "rndc_conf=${config_path}/rndc.conf" $WEBMIN_CONFIG_DIR/bind8/config
 	fi
+
+	# Re-Run Post-Install script for BIND Webmin Module
+	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl bind8)
+
+	# Update ACLs
+	env perl $LIB_BASE/newmods.pl $WEBMIN_CONFIG_DIR bind8
+
+	# Manually update cache file
+	setconfig "bind8=1" $WEBMIN_CONFIG_DIR/installed.cache
 }
