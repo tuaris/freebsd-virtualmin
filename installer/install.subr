@@ -2,10 +2,10 @@
 
 install_core_services() {
 	# Install base services
-	pkg install -y virtualmin usermin bind910 apache24
+	pkg install -y webmin usermin bind910 apache24
 
 	# Install PHP
-	pkg install -y php56 mod_php
+	pkg install -y php56 mod_php56
 }
 
 install_core_utilities() {
@@ -56,6 +56,9 @@ setup_usermin () {
 }
 
 install_virtualmin_modules () {
+	# Install Virtuamin from packages, this has to be done AFTER webmin's setup.sh runs.
+	pkg install -y virtualmin
+
 	# Install Virtulmin-specific modules and themes, as defined in updates.txt
 	logger_info "Installing Virtualmin modules and themes..."
 	repopath=gpl/
