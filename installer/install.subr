@@ -21,6 +21,24 @@ install_core_utilities() {
 	touch /var/log/lastlog
 }
 
+setup_dovecot () {
+	# SSL store
+	mkdir -p $LOCAL_BASE/etc/ssl/certs; mkdir -p $LOCAL_BASE/etc/ssl/private
+
+	# Dovecot won't start with our default config without an SSL cert
+	openssl x509 -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/ssl/certs/dovecot.pem
+	openssl rsa -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/ssl/private/dovecot.pem
+
+	# Copy Default Configuration
+	cp $CONFIG_BASE/dovecot/example-config/dovecot.conf $CONFIG_BASE/dovecot/
+	cp -R $CONFIG_BASE/dovecot/example-config/conf.d $CONFIG_BASE/dovecot/
+
+	# Make sdjustments as needed
+	sed -i '' -e "s/#protocols = imap pop3 lmtp/protocols = imap pop3 lmtp/" $LOCAL_BASE/etc/dovecot/dovecot.conf
+	setconfig "ssl_cert= <$LOCAL_BASE/etc/ssl/certs/dovecot.pem" "$LOCAL_BASE/etc/dovecot/conf.d/10-ssl.conf"
+	setconfig "ssl_key= <$LOCAL_BASE/etc/ssl/private/dovecot.pem" "$LOCAL_BASE/etc/dovecot/conf.d/10-ssl.conf"
+}
+
 setup_postfix () {
 	#configure for virtual hosting
 	postconf -e virtual_alias_maps=hash:$CONFIG_BASE/postfix/virtual
@@ -138,21 +156,6 @@ install_virtualmin () {
 	echo "upthird=1" >>$webmin_config_dir/webmin/config
 	echo "upshow=1" >>$webmin_config_dir/webmin/config
 
-	# Configure Webmin to know where apache22 lives
-	logger_info "Configuring Webmin Apache module..."
-	sed -i -e "s/apache\//apache22\//" $webmin_config_dir/apache/config
-	# Tell Webmin about a great wrongness in the force
-	if grep pid_file $webmin_config_dir/apache/config; then
-		sed -i -e "s/pid_file=.*/pid_file=\/var\/run\/httpd.pid/" $webmin_config_dir/apache/config
-	else
-		echo "pid_file=/var/run/httpd.pid" >> $webmin_config_dir/apache/config
-	fi
-	sed -i -e "s/httpd_dir=.*/httpd_dir=\/usr\/local/" $webmin_config_dir/apache/config
-	setconfig "stop_cmd=/usr/local/etc/rc.d/apache22 stop" $webmin_config_dir/apache/config
-	setconfig "start_cmd=/usr/local/etc/rc.d/apache22 start" $webmin_config_dir/apache/config
-	setconfig "graceful_cmd=/usr/local/etc/rc.d/apache22 reload" $webmin_config_dir/apache/config
-	setconfig "apply_cmd=/usr/local/etc/rc.d/apache22 restart" $webmin_config_dir/apache/config
-	
 	# Configure Webmin to know how to stop and start MySQL
 	setconfig "start_cmd=/usr/local/etc/rc.d/mysql-server start" $webmin_config_dir/mysql/config
 	setconfig "stop_cmd=/usr/local/etc/rc.d/mysql-server stop" $webmin_config_dir/mysql/config
@@ -168,31 +171,10 @@ install_virtualmin () {
 		echo "setenv WEBMIN_CONFIG '/usr/local/etc/webmin'" >>/etc/csh.cshrc
 	fi
 
-	# Dovecot won't start with our default config without an SSL cert
-	testmkdir /etc/ssl/certs/; testmkdir /etc/ssl/private
-	openssl x509 -in $webmin_base/webmin/miniserv.pem > /etc/ssl/certs/dovecot.pem
-	openssl rsa -in $webmin_base/webmin/miniserv.pem > /etc/ssl/private/dovecot.pem
-
 	# It's possible to get here without address being defined
 	. /etc/rc.conf
 	primaryiface=${primaryiface:=`echo $network_interfaces | cut -d" " -f1`}
 	address=${address:=`/sbin/ifconfig $primaryiface | grep "inet " | cut -d" " -f2`}
-	# Tons of syntax errors in the default Apache configuration files.
-	# Seriously?  Syntax errors?
-	vhostsconf=/usr/local/etc/apache22/extra/httpd-vhosts.conf
-	sed -i -e "s/NameVirtualHost \*:80/NameVirtualHost $address:80/" $vhostsconf
-	sed -i -e "s/VirtualHost \*:80/VirtualHost $address:80/" $vhostsconf
-	sed -i -e "s#CustomLog \"/var/log/dummy-host.example.com-access_log common\"#CustomLog \"/var/log/dummy-host.example.com-access_log\" common#" $vhostsconf
-	sed -i -e "s#CustomLog \"/var/log/dummy-host2.example.com-access_log common\"#CustomLog \"/var/log/dummy-host2.example.com-access_log\" common#" $vhostsconf
-	sed -i -e "s#/usr/local/docs/dummy-host.example.com#/usr/local/www/apache22/data#" $vhostsconf
-	sed -i -e "s#/usr/local/docs/dummy-host2.example.com#/usr/local/www/apache22/data#" $vhostsconf
-	# mod_dav loaded twice.  No idea why, but luckily, they have slightly
-	# different spacing, so we can strip out just one of 'em.
-	sed -i -e "s#LoadModule dav_module         libexec/apache22/mod_dav.so##" /usr/local/etc/apache22/httpd.conf
-
-	# Dummy SSL cert, if none exists
-	testcp /etc/ssl/certs/dovecot.pem /usr/local/etc/apache22/server.crt
-	testcp /etc/ssl/private/dovecot.pem /usr/local/etc/apache22/server.key
 
 	# PostgreSQL needs to be initialized
 	logger_info "Initializing postgresql database..."
@@ -203,29 +185,10 @@ install_virtualmin () {
 	setconfig "start_cmd=/usr/local/etc/rc.d/postgresql start" $webmin_config_dir/postgresql/config
 	setconfig "setup_cmd=/usr/local/etc/rc.d/postgresql initdb" $webmin_config_dir/postgresql/config
 
-
-	# Virtualmin configuration
-	export WEBMIN_CONFIG=/usr/local/etc/webmin
-	$download http://software.virtualmin.com/lib/virtualmin-base-standalone.pl
-	perl virtualmin-base-standalone.pl install>>$LOG
-
-	# Virtualmin can't guess the interface on FreeBSD (and neither can this
-	# script, but it pretends)
-	logger_info "Detecting network interface on FreeBSD is unreliable.  Be sure to check the"
-	logger_info "interface in module configuration before creating any virtual servers."
-	sed -i -e "s/iface=.*/iface=$primaryiface/" $webmin_config_dir/virtual-server/config
-
 	return 0
 }
 
 post_install_tasks(){
-
-	# Load accept filter into kernel
-	touch /boot/loader.conf
-	if ! grep -qv 'accf_http_load="YES"' /boot/loader.conf; then
-		echo 'accf_http_load="YES"' >>/boot/loader.conf
-		kldload accf_http
-	fi
 
 	# Setup Default MySQL Settings
 	logger_info "Copying default my.cnf and initializing database..."
@@ -284,18 +247,35 @@ setup_apache () {
 
 	# Enable Sample SSL Virtual Host
 	sed -i '' -e "s:#Include etc/apache24/extra/httpd-ssl.conf:Include etc/apache24/extra/httpd-ssl.conf:" $LOCAL_BASE/etc/apache24/httpd.conf
+
+	# Load accept filter into kernel
+	touch /boot/loader.conf
+	if ! grep -qv 'accf_http_load="YES"' /boot/loader.conf; then
+		echo 'accf_http_load="YES"' >>/boot/loader.conf
+		kldload accf_http
+	fi
 }
 
 webmin_configure_apache() {
 	# Use Apache 2.4
 	sed -i '' -e "s/apache22\//apache24\//" $WEBMIN_CONFIG_DIR/apache/config
 
+	# Configure Webmin to know how to stop, start, restart, and reload
+	setconfig "stop_cmd=${SERVICE} apache24 stop" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "start_cmd=${SERVICE} apache24 start" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "graceful_cmd=${SERVICE} apache24 reload" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "apply_cmd=${SERVICE} apache24 restart" $WEBMIN_CONFIG_DIR/apache/config
+
 	# Install Sample SSL Certificate and Key using pre-generated Webmin ones
 	openssl x509 -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/apache24/server.crt
 	openssl rsa -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/apache24/server.key
 
-	# SSL store
-	mkdir -p $LOCAL_BASE/etc/ssl/certs; mkdir -p $LOCAL_BASE/etc/ssl/private
+	# Setup Modular Virtual Hosting
+	mkdir -p $CONFIG_BASE/apache24/sites-available
+	mkdir -p $CONFIG_BASE/apache24/sites-enabled
+	echo -e '# Virtuamin Virtual Hosting\nIncludeOptional etc/apache24/sites-enabled/*.conf' > $CONFIG_BASE/apache24/Includes/virtuamin.conf
+	setconfig "link_dir=$CONFIG_BASE/apache24/sites-enabled" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "virt_file=$CONFIG_BASE/apache24/sites-available" $WEBMIN_CONFIG_DIR/apache/config
 
 	# Re-Run Post-Install script for Apache Webmin Module
 	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl apache)
@@ -317,6 +297,11 @@ webmin_configure_bind() {
 		setconfig "rndc_conf=${config_path}/rndc.conf" $WEBMIN_CONFIG_DIR/bind8/config
 	fi
 
+	# Configure Webmin to know how to stop, start, and reload
+	setconfig "stop_cmd=${SERVICE} named stop" $WEBMIN_CONFIG_DIR/bind8/config
+	setconfig "start_cmd=${SERVICE} named start" $WEBMIN_CONFIG_DIR/bind8/config
+	setconfig "restart_cmd=${SERVICE} named reload" $WEBMIN_CONFIG_DIR/bind8/config
+
 	# Re-Run Post-Install script for BIND Webmin Module
 	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl bind8)
 
@@ -325,4 +310,18 @@ webmin_configure_bind() {
 
 	# Manually update cache file
 	setconfig "bind8=1" $WEBMIN_CONFIG_DIR/installed.cache
+}
+
+webmin_configure_dovecot() {
+	# Set correct configuration file location
+	setconfig "dovecot_config=$CONFIG_BASE/dovecot/dovecot.conf" $WEBMIN_CONFIG_DIR/dovecot/config
+
+	# Re-Run Post-Install script for BIND Webmin Module
+	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl dovecot)
+
+	# Update ACLs
+	env perl $LIB_BASE/webmin/newmods.pl $WEBMIN_CONFIG_DIR dovecot
+
+	# Manually update cache file
+	setconfig "dovecot=1" $WEBMIN_CONFIG_DIR/installed.cache
 }

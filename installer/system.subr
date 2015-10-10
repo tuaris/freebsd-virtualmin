@@ -1,5 +1,7 @@
 #!/bin/sh
 
+export SERVICE=$(which service)
+
 # Detects the System's primary IP address
 detect_ip () {
 	primaryaddr=`/sbin/ifconfig | grep inet | cut -d " " -f 2 | head -n1`
@@ -111,7 +113,7 @@ setconfig () {
 	sc_value=$1
 	sc_directive=`echo $sc_value | cut -d'=' -f1`
 	if grep -q $sc_directive $2; then
-		sed -i -e "s#$sc_directive.*#$sc_value#" $sc_config
+		sed -i '' -e "s#$sc_directive.*#$sc_value#" $sc_config
 	else
 		echo $1 >> $2
 	fi

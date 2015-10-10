@@ -112,6 +112,8 @@ disable_sendmail_tasks
 
 setup_apache
 setup_postfix
+setup_dovecot
+
 setup_webmin
 setup_usermin
 
