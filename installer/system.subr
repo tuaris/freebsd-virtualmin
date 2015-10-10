@@ -211,3 +211,13 @@ EOF
 		chmod 444 $TMPDIR/cert.pem
 	fi
 }
+
+# Starts all the background services
+start_services () {
+	logger_info "Sarting all required services"
+	local_services='named apache24 postfix dovecot webmin usermin'
+
+	for local_service in $local_services; do
+		$SERVICE $local_service start
+	done
+}

@@ -133,3 +133,12 @@ enable_services
 if [ -e "$TMPDIR" ]; then
 	rm -rf $TMPDIR
 fi
+
+##########################
+# Complete
+##########################
+
+
+start_services
+
+logger_info "Installation is complete.  You may now login to Virtualmin"
