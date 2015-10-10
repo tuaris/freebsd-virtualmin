@@ -37,6 +37,10 @@ setup_dovecot () {
 	sed -i '' -e "s/#protocols = imap pop3 lmtp/protocols = imap pop3 lmtp/" $LOCAL_BASE/etc/dovecot/dovecot.conf
 	setconfig "ssl_cert= <$LOCAL_BASE/etc/ssl/certs/dovecot.pem" "$LOCAL_BASE/etc/dovecot/conf.d/10-ssl.conf"
 	setconfig "ssl_key= <$LOCAL_BASE/etc/ssl/private/dovecot.pem" "$LOCAL_BASE/etc/dovecot/conf.d/10-ssl.conf"
+
+	# Setup SASL for Postfix
+	#sed -i '' -e "s@#unix_listener /var/spool/postfix/private/auth@unix_listener /var/spool/postfix/private/auth@" $LOCAL_BASE/etc/dovecot/conf.d/10-master.conf
+	#sed -i '' -e "s@#  mode = 0666@  mode = 0666@" $LOCAL_BASE/etc/dovecot/conf.d/10-master.conf
 }
 
 setup_postfix () {
@@ -51,6 +55,7 @@ setup_postfix () {
 	# Setup SASL
 	postconf -e smtpd_sasl_type=dovecot
 	postconf -e smtpd_sasl_path=private/auth
+	postconf -e smtpd_sasl_auth_enable=yes
 }
 
 setup_webmin () {
