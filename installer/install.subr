@@ -249,6 +249,9 @@ setup_apache () {
 	cp $TMPDIR/cert.pem $LOCAL_BASE/etc/apache24/server.crt
 	cp $TMPDIR/key.pem $LOCAL_BASE/etc/apache24/server.key
 
+	# Enable mod_fcgid
+	echo 'LoadModule fcgid_module libexec/apache24/mod_fcgid.so' > $CONFIG_BASE/apache24/modules.d/000_mod_fcgid.conf
+
 	# Load accept filter into kernel
 	touch /boot/loader.conf
 	if ! grep -qv 'accf_http_load="YES"' /boot/loader.conf; then
