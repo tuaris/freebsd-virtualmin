@@ -120,6 +120,7 @@ setup_usermin
 
 webmin_configure_bind
 webmin_configure_apache
+webmin_configure_dovecot
 
 install_virtualmin_modules
 
