@@ -301,7 +301,7 @@ webmin_configure_apache() {
 	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl apache)
 
 	# Update ACLs
-	env perl $LIB_BASE/newmods.pl $WEBMIN_CONFIG_DIR apache
+	env perl $LIB_BASE/webmin/newmods.pl $WEBMIN_CONFIG_DIR apache
 
 	# Manually update cache file
 	setconfig "apache=1" $WEBMIN_CONFIG_DIR/installed.cache
@@ -321,7 +321,7 @@ webmin_configure_bind() {
 	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl bind8)
 
 	# Update ACLs
-	env perl $LIB_BASE/newmods.pl $WEBMIN_CONFIG_DIR bind8
+	env perl $LIB_BASE/webmin/newmods.pl $WEBMIN_CONFIG_DIR bind8
 
 	# Manually update cache file
 	setconfig "bind8=1" $WEBMIN_CONFIG_DIR/installed.cache

@@ -61,6 +61,42 @@ EOF
 	sleep 3
 }
 
+# Installs the log4sh package, starts logging
+init_logging() {
+	# Setup log4sh so we can start keeping a proper log while also feeding output
+	# to the console.
+	echo "Loading log4sh logging library..."
+	if pkg install -y log4sh
+	then 
+		# source log4sh (disabling properties file warning)
+		LOG4SH_CONFIGURATION="none" . $LOCAL_BASE/lib/log4sh
+	else
+		echo " Could not load logging library.  Cannot continue."
+		echo " We're not just stopping because we don't have a logging library--this probably"
+		echo " indicates a serious problem that will prevent successful installation anyway."
+		echo " Check network connectivity, name resolution and disk space and try again."
+		exit 1
+	fi
+
+	# Setup log4sh properties
+	# Console output
+	logger_setLevel INFO
+	# Debug log
+	logger_addAppender virtualmin
+	appender_setAppenderType virtualmin FileAppender
+	appender_setAppenderFile virtualmin $LOG
+	appender_setLevel virtualmin ALL
+	appender_setLayout virtualmin PatternLayout
+	appender_setPattern virtualmin '%p - %d - %m%n'
+
+	logger_info "Started installation log in $LOG"
+
+	# Print out some details that we gather before logging existed
+	logger_debug "Product: Virtualmin $PRODUCT"
+	logger_debug "install.sh version: $VER"
+
+}
+
 # Tests if a honame is FQDN
 is_fully_qualified () {
 	case $1 in
