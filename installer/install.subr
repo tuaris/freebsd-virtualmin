@@ -5,12 +5,15 @@ install_core_services() {
 	pkg install -y virtualmin usermin bind910 apache24
 
 	# Install PHP
-	pkg install -y php56 mod_php56
+	pkg install -y lang/php56 www/mod_php56 www/mod_fcgid
 
 	# Install Mail services
 	export POSTFIX_DEFAULT_MTA=yes
 	export BATCH=yes
-	pkg install -y mail/postfix mail/dovecot2 mail/procmail
+	pkg install -y mail/postfix mail/dovecot2 mail/procmail mail/spamassassin security/clamav
+
+	# Install FTP Server
+	pkg install -y ftp/proftpd
 }
 
 install_core_utilities() {
@@ -160,9 +163,6 @@ install_virtualmin () {
 	setconfig "start_cmd=/usr/local/etc/rc.d/mysql-server start" $webmin_config_dir/mysql/config
 	setconfig "stop_cmd=/usr/local/etc/rc.d/mysql-server stop" $webmin_config_dir/mysql/config
 
-	# Configure Webmin to know Usermin lives in /usr/local/etc/usermin
-	sed -i -e "s/usermin_dir=.*/usermin_dir=\/usr\/local\/etc\/usermin/" $webmin_config_dir/usermin/config
-
 	# Add environment settings so that API scripts work
 	if grep -qv WEBMIN_CONFIG /etc/profile; then 
 		echo "export WEBMIN_CONFIG=/usr/local/etc/webmin" >>/etc/profile
@@ -196,7 +196,7 @@ post_install_tasks(){
 	ln -s /usr/local/etc/my.cnf /etc/my.cnf
 	testmkdir /var/db/mysql
 	logger_info `/usr/local/etc/rc.d/mysql-server start`
-	
+
 	# SpamAssassin needs a config file
 	testcp /usr/local/etc/mail/spamassassin/local.cf.sample /usr/local/etc/mail/spamassassin/local.cf
 	
