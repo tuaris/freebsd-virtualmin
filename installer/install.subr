@@ -25,12 +25,9 @@ install_core_utilities() {
 }
 
 setup_dovecot () {
-	# SSL store
-	mkdir -p $LOCAL_BASE/etc/ssl/certs; mkdir -p $LOCAL_BASE/etc/ssl/private
-
 	# Dovecot won't start with our default config without an SSL cert
-	openssl x509 -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/ssl/certs/dovecot.pem
-	openssl rsa -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/ssl/private/dovecot.pem
+	cp $TMPDIR/cert.pem $LOCAL_BASE/etc/ssl/certs/dovecot.pem
+	cp $TMPDIR/key.pem $LOCAL_BASE/etc/ssl/private/dovecot.pem
 
 	# Copy Default Configuration
 	cp $CONFIG_BASE/dovecot/example-config/dovecot.conf $CONFIG_BASE/dovecot/
@@ -248,6 +245,10 @@ setup_apache () {
 	# Enable Sample SSL Virtual Host
 	sed -i '' -e "s:#Include etc/apache24/extra/httpd-ssl.conf:Include etc/apache24/extra/httpd-ssl.conf:" $LOCAL_BASE/etc/apache24/httpd.conf
 
+	# Install Sample SSL Certificate and Key
+	cp $TMPDIR/cert.pem $LOCAL_BASE/etc/apache24/server.crt
+	cp $TMPDIR/key.pem $LOCAL_BASE/etc/apache24/server.key
+
 	# Load accept filter into kernel
 	touch /boot/loader.conf
 	if ! grep -qv 'accf_http_load="YES"' /boot/loader.conf; then
@@ -265,10 +266,6 @@ webmin_configure_apache() {
 	setconfig "start_cmd=${SERVICE} apache24 start" $WEBMIN_CONFIG_DIR/apache/config
 	setconfig "graceful_cmd=${SERVICE} apache24 reload" $WEBMIN_CONFIG_DIR/apache/config
 	setconfig "apply_cmd=${SERVICE} apache24 restart" $WEBMIN_CONFIG_DIR/apache/config
-
-	# Install Sample SSL Certificate and Key using pre-generated Webmin ones
-	openssl x509 -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/apache24/server.crt
-	openssl rsa -in $LIB_BASE/webmin/miniserv.pem > $LOCAL_BASE/etc/apache24/server.key
 
 	# Setup Modular Virtual Hosting
 	mkdir -p $CONFIG_BASE/apache24/sites-available

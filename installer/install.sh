@@ -97,6 +97,7 @@ chmod +x $srcdir/spinner
 
 setup_pkg_repos
 init_logging
+generate_self_signed_ssl_certificate
 
 ##########################
 # Begin Install
@@ -123,3 +124,11 @@ webmin_configure_apache
 install_virtualmin_modules
 
 enable_services
+
+##########################
+# Clean Up
+##########################
+
+if [ -e "$TMPDIR" ]; then
+	rm -rf $TMPDIR
+fi

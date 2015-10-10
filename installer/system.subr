@@ -185,3 +185,29 @@ testmkdir () {
 	fi
 }
 
+generate_self_signed_ssl_certificate () {
+	logger_info "Generating a self-sign certificate and key pair..."
+
+	# SSL store
+	mkdir -p $LOCAL_BASE/etc/ssl/certs; mkdir -p $LOCAL_BASE/etc/ssl/private
+
+	host=`hostname`
+
+	# Generate a new SSL key and certificate for this host
+	openssl req -newkey rsa:2048 -x509 -nodes -out $TMPDIR/cert.pem -keyout $TMPDIR/key.pem -days 1825 -sha256 >/dev/null 2>&1 <<EOF
+.
+.
+.
+Virtualmin Server on $host
+Self Signed SSL Certificate
+$host
+root@$host
+EOF
+
+	# Check Result, adjust permisssions
+	if [ "$?" = "0" ]; then
+		logger_info "Sucessful"
+		chmod 400 $TMPDIR/key.pem
+		chmod 444 $TMPDIR/cert.pem
+	fi
+}
