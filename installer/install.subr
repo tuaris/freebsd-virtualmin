@@ -39,8 +39,11 @@ setup_dovecot () {
 	setconfig "ssl_key= <$LOCAL_BASE/etc/ssl/private/dovecot.pem" "$LOCAL_BASE/etc/dovecot/conf.d/10-ssl.conf"
 
 	# Setup SASL for Postfix
-	#sed -i '' -e "s@#unix_listener /var/spool/postfix/private/auth@unix_listener /var/spool/postfix/private/auth@" $LOCAL_BASE/etc/dovecot/conf.d/10-master.conf
-	#sed -i '' -e "s@#  mode = 0666@  mode = 0666@" $LOCAL_BASE/etc/dovecot/conf.d/10-master.conf
+	cp $LOCAL_BASE/etc/dovecot/conf.d/10-master.conf $TMPDIR/awk-temp.txt
+	cat $TMPDIR/awk-temp.txt | awk '/# Postfix smtp-auth/ {n=NR} n && NR-n && NR-n<=3 {sub("# ?","")} {print}' > $LOCAL_BASE/etc/dovecot/conf.d/10-master.conf
+	#user = postfix
+	#group = postfix
+	rm -f $TMPDIR/awk-temp.txt
 }
 
 setup_postfix () {
@@ -56,6 +59,25 @@ setup_postfix () {
 	postconf -e smtpd_sasl_type=dovecot
 	postconf -e smtpd_sasl_path=private/auth
 	postconf -e smtpd_sasl_auth_enable=yes
+
+	postconf -e mua_client_restrictions=permit_sasl_authenticated,reject
+	postconf -e mua_sender_restrictions=reject_sender_login_mismatch
+	postconf -e mua_helo_restrictions=
+
+	# Setup TLS with default Certificates and Keys
+	postconf -e smtpd_tls_cert_file=$CONFIG_BASE/ssl/certs/postfix.pem
+	postconf -e smtpd_tls_key_file=$CONFIG_BASE/ssl/private/postfix.pem
+	cp $TMPDIR/cert.pem $CONFIG_BASE/ssl/certs/postfix.pem
+	cp $TMPDIR/key.pem $CONFIG_BASE/ssl/private/postfix.pem
+
+	#awk '/#submission/ {n=NR} NR-n<=1 || /-o/ {sub("#?","")} {print}' $CONFIG_BASE/postfix/master.cf
+	postconf -Pe submission/inet/smtpd_sasl_type=dovecot
+	postconf -Pe submission/inet/smtpd_sasl_path=private/auth
+	postconf -Pe submission/inet/smtpd_sasl_security_options=private/auth
+	postconf -Pe submission/inet/smtpd_sasl_path=noanonymous
+	postconf -Pe submission/inet/smtpd_sasl_local_domain=\$myhostname
+	postconf -Pe submission/inet/smtpd_sender_login_maps=hash:$CONFIG_BASE/postfix/virtual
+	postconf -Pe submission/inet/smtpd_recipient_restrictions=reject_non_fqdn_recipient,reject_unknown_recipient_domain,permit_sasl_authenticated,reject
 }
 
 setup_webmin () {
