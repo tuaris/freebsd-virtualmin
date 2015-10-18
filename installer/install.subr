@@ -85,10 +85,10 @@ setup_postfix () {
 	#awk '/#submission/ {n=NR} /#smtps/ {b=1} NR-n<=1 && b==0 {sub("#?","")} {print b}' $CONFIG_BASE/postfix/master.cf
 	cp $CONFIG_BASE/postfix/master.cf $TMPDIR/awk-temp.txt
 	cat $TMPDIR/awk-temp.txt | awk '/#submission/ {n=NR;b=NR} /-o/ {b++} NR-n<=1 || b==NR {sub("#?","")} {print}' > $CONFIG_BASE/postfix/master.cf
+	postconf -Pe submission/inet/smtpd_tls_loglevel=1
 	postconf -Pe submission/inet/smtpd_sasl_type=dovecot
 	postconf -Pe submission/inet/smtpd_sasl_path=private/auth
-	postconf -Pe submission/inet/smtpd_sasl_security_options=private/auth
-	postconf -Pe submission/inet/smtpd_sasl_path=noanonymous
+	postconf -Pe submission/inet/smtpd_sasl_security_options=noanonymous
 	postconf -Pe submission/inet/smtpd_sasl_local_domain=\$myhostname
 	postconf -Pe submission/inet/smtpd_sender_login_maps=hash:$CONFIG_BASE/postfix/virtual
 	postconf -Pe submission/inet/smtpd_recipient_restrictions=reject_non_fqdn_recipient,reject_unknown_recipient_domain,permit_sasl_authenticated,reject
