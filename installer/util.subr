@@ -170,3 +170,11 @@ yesno () {
 		esac
 	done
 }
+
+is_valid_ip () {
+	ip_address_regex="\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+	is_valid=$(echo $1 | egrep $ip_address_regex)
+	result=$?
+	echo $result
+	return $result
+}

@@ -46,6 +46,16 @@ setup_dovecot () {
 	rm -f $TMPDIR/awk-temp.txt
 }
 
+# Ensures a fully qualified hostname is properly setup for this system
+setup_hostname () {
+	logger_info "Checking for fully qualified hostname..."
+	name=`hostname -f`
+	if ! is_fully_qualified $name; then set_hostname
+		elif [ "$forcehostname" != "" ]; then set_hostname
+	fi
+	add_hostname_to_hosts
+}
+
 setup_postfix () {
 	#configure for virtual hosting
 	postconf -e virtual_alias_maps=hash:$CONFIG_BASE/postfix/virtual

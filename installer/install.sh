@@ -105,6 +105,8 @@ generate_self_signed_ssl_certificate
 
 logger_info "FreeBSD Operating system version: $OS_VERSION"
 
+setup_hostname
+
 install_core_services
 install_core_utilities
 
@@ -138,7 +140,7 @@ fi
 # Complete
 ##########################
 
-
 start_services
+add_local_namesever_ip
 
 logger_info "Installation is complete.  You may now login to Virtualmin"

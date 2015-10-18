@@ -8,6 +8,7 @@ detect_ip () {
 	if [ $primaryaddr ]; then
 		logger_info "Primary address detected as $primaryaddr"
 		address=$primaryaddr
+		echo "IP: $address"
 		return 0
 	else
 		logger_info "Unable to determine IP address of primary interface."
@@ -21,6 +22,7 @@ detect_ip () {
 		if [ $primaryaddr ]; then
 			logger_info "Primary address detected as $primaryaddr"
 			address=$primaryaddr
+			echo "IP: $address"
 		else
 			fatal "Unable to determine IP address of selected interface.  Cannot continue."
 		fi
@@ -134,19 +136,24 @@ set_hostname () {
 			logger_info "Hostname $line is not fully qualified."
 		else
 			hostname $line
-			detect_ip
-			if grep $address /etc/hosts; then
-				logger_info "Entry for IP $address exists in /etc/hosts."
-				logger_info "Updating with new hostname."
-				shortname=`echo $line | cut -d"." -f1`
-				sed -i "s/^$address\([\s\t]+\).*$/$address\1$line\t$shortname/" /etc/hosts
-			else
-				logger_info "Adding new entry for hostname $line on $address to /etc/hosts."
-				printf "$address\t$line\t$shortname\n" >> /etc/hosts
-			fi
-		i=1
-	fi
+			i=1
+		fi
 	done
+}
+
+# Adds the hostname entry to /etc/hosts
+add_hostname_to_hosts () {
+	fq_hostname=$(hostname -f)
+	system_ip_address=$(detect_ip | grep "IP:" | awk -F ': ' '{ print $2 }')
+	shortname=$(echo $fq_hostname | cut -d"." -f1)
+	if grep $system_ip_address /etc/hosts; then
+		logger_info "Entry for IP $system_ip_address exists in /etc/hosts."
+		logger_info "Updating with new hostname."
+		sed -i '' "s/^$system_ip_address\([\s\t]*\).*$/$system_ip_address$(printf '\t')$fq_hostname$(printf '\t')$shortname/" /etc/hosts
+	else
+		logger_info "Adding new entry for hostname $fq_hostname on $system_ip_address to /etc/hosts."
+		printf "$system_ip_address\t$fq_hostname\t$shortname\n" >> /etc/hosts
+	fi
 }
 
 # Setup Package Repositries
@@ -220,4 +227,28 @@ start_services () {
 	for local_service in $local_services; do
 		$SERVICE $local_service start
 	done
+}
+
+add_local_namesever_ip () {
+	nameserevr_IP="127.0.0.1"
+	etc_resolv_conf=/etc/resolv.conf
+
+	if [ ! -z "$1" ]; then 
+		nameserevr_IP=$1
+	fi
+
+	valid_ip=$(is_valid_ip "$nameserevr_IP")
+	if [ "$?" != 0 ]; then 
+		echo "Invalid IP address."
+		return 2
+	fi
+
+	fgrep "nameserver $nameserevr_IP" $etc_resolv_conf >/dev/null
+	if [ "$?" != 0 ]; then
+		logger_info "Adding $nameserevr_IP to $etc_resolv_conf"
+		# Remove Empty lines at end of file
+		sed -i '' -e :a -e '/^\n*$/{$d;N;};/\n$/ba' $etc_resolv_conf
+		# Add namesrver entry
+		echo "nameserver $nameserevr_IP" >> $etc_resolv_conf
+	fi
 }
