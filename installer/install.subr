@@ -57,6 +57,9 @@ setup_hostname () {
 }
 
 setup_postfix () {
+	# Create /etc/aliases
+	newaliases
+
 	#configure for virtual hosting
 	postconf -e virtual_alias_maps=hash:$CONFIG_BASE/postfix/virtual
 	touch $CONFIG_BASE/postfix/virtual
