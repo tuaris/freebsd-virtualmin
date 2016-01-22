@@ -116,6 +116,7 @@ disable_sendmail_tasks
 setup_apache
 setup_postfix
 setup_dovecot
+setup_mysql
 
 setup_webmin
 setup_usermin
@@ -123,6 +124,7 @@ setup_usermin
 webmin_configure_bind
 webmin_configure_apache
 webmin_configure_dovecot
+webmin_configure_mysql
 
 install_virtualmin_modules
 

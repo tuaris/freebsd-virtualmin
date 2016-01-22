@@ -14,6 +14,9 @@ install_core_services() {
 
 	# Install FTP Server
 	pkg install -y ftp/proftpd
+
+	# Install MySQL Database Server
+	pkg install -y mysql56-server
 }
 
 install_core_utilities() {
@@ -231,16 +234,9 @@ install_virtualmin () {
 
 post_install_tasks(){
 
-	# Setup Default MySQL Settings
-	logger_info "Copying default my.cnf and initializing database..."
-	testcp /usr/local/share/mysql/my-medium.cnf /usr/local/etc/my.cnf
-	ln -s /usr/local/etc/my.cnf /etc/my.cnf
-	testmkdir /var/db/mysql
-	logger_info `/usr/local/etc/rc.d/mysql-server start`
-
 	# SpamAssassin needs a config file
 	testcp /usr/local/etc/mail/spamassassin/local.cf.sample /usr/local/etc/mail/spamassassin/local.cf
-	
+
 	# Clam needs fresh database
 	logger_info "Initializing the clamav database.  This may take a long time..."
 	freshclam
@@ -302,6 +298,12 @@ setup_apache () {
 		echo 'accf_http_load="YES"' >>/boot/loader.conf
 		kldload accf_http
 	fi
+}
+
+setup_mysql () {
+	# Setup Default MySQL Settings
+	logger_info "Copying default my.cnf and initializing database..."
+	testcp $LOCAL_BASE/share/mysql/my-default.cnf $CONFIG_BASE/my.cnf
 }
 
 webmin_configure_apache() {
@@ -368,4 +370,9 @@ webmin_configure_dovecot() {
 
 	# Manually update cache file
 	setconfig "dovecot=1" $WEBMIN_CONFIG_DIR/installed.cache
+}
+
+webmin_configure_mysql() {
+	# Set correct configuration file location
+	setconfig "my_cnf=$CONFIG_BASE/my.cnf" $WEBMIN_CONFIG_DIR/mysql/config
 }

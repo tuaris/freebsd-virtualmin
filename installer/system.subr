@@ -99,6 +99,7 @@ webmin_enable="YES"
 usermin_enable="YES"
 postfix_enable="YES"
 dovecot_enable="YES"
+mysql_enable="YES"
 ' > $TMPDIR/virtualmin.rc.conf
 
 	# Avoid Duplicating
@@ -222,7 +223,7 @@ EOF
 # Starts all the background services
 start_services () {
 	logger_info "Sarting all required services"
-	local_services='named apache24 postfix dovecot webmin usermin'
+	local_services='named apache24 postfix dovecot mysql-server webmin usermin'
 
 	for local_service in $local_services; do
 		$SERVICE $local_service start
