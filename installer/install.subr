@@ -16,7 +16,7 @@ install_core_services() {
 	pkg install -y ftp/proftpd
 
 	# Install MySQL Database Server
-	pkg install -y mysql56-server
+	pkg install -y mysql56-server databases/p5-DBD-mysql
 }
 
 install_core_utilities() {
@@ -203,10 +203,6 @@ install_virtualmin () {
 	echo "upthird=1" >>$webmin_config_dir/webmin/config
 	echo "upshow=1" >>$webmin_config_dir/webmin/config
 
-	# Configure Webmin to know how to stop and start MySQL
-	setconfig "start_cmd=/usr/local/etc/rc.d/mysql-server start" $webmin_config_dir/mysql/config
-	setconfig "stop_cmd=/usr/local/etc/rc.d/mysql-server stop" $webmin_config_dir/mysql/config
-
 	# Add environment settings so that API scripts work
 	if grep -qv WEBMIN_CONFIG /etc/profile; then 
 		echo "export WEBMIN_CONFIG=/usr/local/etc/webmin" >>/etc/profile
@@ -375,4 +371,8 @@ webmin_configure_dovecot() {
 webmin_configure_mysql() {
 	# Set correct configuration file location
 	setconfig "my_cnf=$CONFIG_BASE/my.cnf" $WEBMIN_CONFIG_DIR/mysql/config
+
+	# Configure Webmin to know how to stop and start MySQL
+	setconfig "start_cmd=${SERVICE} mysql-server start" $WEBMIN_CONFIG_DIR/mysql/config
+	setconfig "stop_cmd=${SERVICE} mysql-server stop" $WEBMIN_CONFIG_DIR/mysql/config
 }

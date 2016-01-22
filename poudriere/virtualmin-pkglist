@@ -14,6 +14,7 @@ mail/spamassassin
 databases/mysql56-server
 databases/postgresql94-server
 databases/p5-DBD-SQLite2
+databases/p5-DBD-mysql
 sysutils/logrotate
 www/webalizer
 security/clamav
