@@ -15,6 +15,7 @@ databases/mysql56-server
 databases/postgresql94-server
 databases/p5-DBD-SQLite2
 databases/p5-DBD-mysql
+databases/p5-DBD-Pg
 sysutils/logrotate
 www/webalizer
 security/clamav
