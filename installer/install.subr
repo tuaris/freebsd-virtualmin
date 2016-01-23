@@ -141,17 +141,17 @@ setup_usermin () {
 	login=admin
 	crypt=x
 	ssl=1
-	usermin_theme=blue-theme
+	theme=virtual-server-theme
 	perl=$(which perl)
 
-	export config_dir var_dir port login crypt ssl perl usermin_theme
+	export config_dir var_dir port login crypt ssl perl theme
 
 	logger_info "Installing Usermin..."
 	runner "$LIB_BASE/usermin/setup.sh $LIB_BASE/usermin"
 
 	# Manually set the theme
-	setconfig "theme=$usermin_theme" $CONFIG_BASE/usermin/config
-	setconfig "preroot=$usermin_theme" $CONFIG_BASE/usermin/miniserv.conf
+	setconfig "theme=$theme" $CONFIG_BASE/usermin/config
+	setconfig "preroot=$theme" $CONFIG_BASE/usermin/miniserv.conf
 
 	# Re-Run Post-Install script for Usermin Webmin Module
 	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl usermin)
@@ -378,6 +378,9 @@ webmin_configure_dovecot() {
 
 	# Update ACLs
 	env perl $LIB_BASE/webmin/newmods.pl $WEBMIN_CONFIG_DIR dovecot
+
+	# Make sure we use Maildir system in usermin
+	setconfig "mail_system=1" $CONFIG_BASE/usermin/mailbox/config
 
 	# Manually update cache file
 	setconfig "dovecot=1" $WEBMIN_CONFIG_DIR/installed.cache
