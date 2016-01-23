@@ -17,6 +17,9 @@ install_core_services() {
 
 	# Install MySQL Database Server
 	pkg install -y mysql56-server databases/p5-DBD-mysql
+
+	# Install PostgreSQL Server
+	pkg install -y postgresql94-server databases/p5-DBD-pg
 }
 
 install_core_utilities() {
@@ -138,13 +141,24 @@ setup_usermin () {
 	login=admin
 	crypt=x
 	ssl=1
-	theme=virtual-server-theme
+	usermin_theme=blue-theme
 	perl=$(which perl)
 
-	export config_dir var_dir port login crypt ssl perl theme
+	export config_dir var_dir port login crypt ssl perl usermin_theme
 
 	logger_info "Installing Usermin..."
 	runner "$LIB_BASE/usermin/setup.sh $LIB_BASE/usermin"
+
+	# Manually set the theme
+	setconfig "theme=$usermin_theme" $CONFIG_BASE/usermin/config
+	setconfig "preroot=$usermin_theme" $CONFIG_BASE/usermin/miniserv.conf
+
+	# Re-Run Post-Install script for Usermin Webmin Module
+	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl usermin)
+
+	# Manually update cache file
+	setconfig "usermin=1" $WEBMIN_CONFIG_DIR/installed.cache
+
 }
 
 install_virtualmin_modules () {
@@ -192,7 +206,7 @@ install_virtualmin_modules () {
 	done
 }
 
-install_virtualmin () {
+NOTUSEED_install_virtualmin () {
 	# Configure Webmin to use updates.txt
 	logger_info "Configuring Webmin to use Virtualmin updates service..."
 	echo "upsource=http://software.virtualmin.com/${repopath}wbm/updates.txt	http://www.webmin.com/updates/updates.txt" >>$webmin_config_dir/webmin/config
@@ -216,19 +230,10 @@ install_virtualmin () {
 	primaryiface=${primaryiface:=`echo $network_interfaces | cut -d" " -f1`}
 	address=${address:=`/sbin/ifconfig $primaryiface | grep "inet " | cut -d" " -f2`}
 
-	# PostgreSQL needs to be initialized
-	logger_info "Initializing postgresql database..."
-	runner "/usr/local/etc/rc.d/postgresql initdb"
-
-	# Webmin <=1.411 doesn't know the right paths
-	setconfig "stop_cmd=/usr/local/etc/rc.d/postgresql stop" $webmin_config_dir/postgresql/config
-	setconfig "start_cmd=/usr/local/etc/rc.d/postgresql start" $webmin_config_dir/postgresql/config
-	setconfig "setup_cmd=/usr/local/etc/rc.d/postgresql initdb" $webmin_config_dir/postgresql/config
-
 	return 0
 }
 
-post_install_tasks(){
+NOTUSEED_post_install_tasks(){
 
 	# SpamAssassin needs a config file
 	testcp /usr/local/etc/mail/spamassassin/local.cf.sample /usr/local/etc/mail/spamassassin/local.cf
@@ -300,6 +305,13 @@ setup_mysql () {
 	# Setup Default MySQL Settings
 	logger_info "Copying default my.cnf and initializing database..."
 	testcp $LOCAL_BASE/share/mysql/my-default.cnf $CONFIG_BASE/my.cnf
+}
+
+setup_postgresql () {
+	# PostgreSQL needs to be initialized
+	logger_info "Initializing postgresql database..."
+	runner "${SERVICE} postgresql oneinitdb"
+	runner "${SERVICE} postgresql onestop"
 }
 
 webmin_configure_apache() {
@@ -378,4 +390,11 @@ webmin_configure_mysql() {
 	# Configure Webmin to know how to stop and start MySQL
 	setconfig "start_cmd=${SERVICE} mysql-server start" $WEBMIN_CONFIG_DIR/mysql/config
 	setconfig "stop_cmd=${SERVICE} mysql-server stop" $WEBMIN_CONFIG_DIR/mysql/config
+}
+
+webmin_configure_postgresql() {
+	# Configure Webmin to know how to initialize, stop, and start Postgres
+	setconfig "stop_cmd=${SERVICE} postgresql stop" $WEBMIN_CONFIG_DIR/postgresql/config
+	setconfig "start_cmd=${SERVICE} postgresql start" $WEBMIN_CONFIG_DIR/postgresql/config
+	setconfig "setup_cmd=${SERVICE} postgresql initdb" $WEBMIN_CONFIG_DIR/postgresql/config
 }
