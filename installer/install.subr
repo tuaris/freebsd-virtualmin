@@ -319,6 +319,9 @@ webmin_configure_apache() {
 	setconfig "link_dir=$CONFIG_BASE/apache24/sites-enabled" $WEBMIN_CONFIG_DIR/apache/config
 	setconfig "virt_file=$CONFIG_BASE/apache24/sites-available" $WEBMIN_CONFIG_DIR/apache/config
 
+	# Default to using php-fcgi execution for all new sites
+	setconfig "php_suexec=2" $WEBMIN_CONFIG_DIR/virtual-server/config
+
 	# Re-Run Post-Install script for Apache Webmin Module
 	(cd $LIB_BASE/webmin; WEBMIN_CONFIG=$WEBMIN_CONFIG_DIR WEBMIN_VAR=/var/log/webmin $LIB_BASE/webmin/run-postinstalls.pl apache)
 
