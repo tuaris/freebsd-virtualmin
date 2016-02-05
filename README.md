@@ -5,6 +5,8 @@
 This install script works best with a clean system.  It automaitcly disables standard FreeBSD
 PKG repositories and sets up custom PKG repos.  
 
+![](http://phobos.morante.net/downloads/unibia/screenshots/virtualmin-5.png "Virtualmin on FreeBSD")
+
 ## Try it out
 
 ```
