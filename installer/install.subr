@@ -113,7 +113,7 @@ setup_webmin () {
 	login=admin
 	crypt=x
 	ssl=1
-	theme=virtual-server-theme
+	theme=authentic-theme
 	perl=$(which perl)
 
 	export config_dir var_dir port login crypt ssl perl theme
@@ -141,7 +141,7 @@ setup_usermin () {
 	login=admin
 	crypt=x
 	ssl=1
-	theme=virtual-server-theme
+	theme=authentic-theme
 	perl=$(which perl)
 
 	export config_dir var_dir port login crypt ssl perl theme
