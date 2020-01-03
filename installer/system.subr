@@ -32,46 +32,15 @@ detect_ip () {
 
 # Disables sendmail
 disable_sendmail() {
-	path="/etc/rc.conf"
-
-	# Create temporary file with content
-	echo '
-
-# Disable Sendmail
-sendmail_enable="NO"
-sendmail_submit_enable="NO"
-sendmail_outbound_enable="NO"
-sendmail_msp_queue_enable="NO"
-' > $TMPDIR/disable-sendmail.rc.conf
-
-	# Avoid Duplicating
-	fgrep '# Disable Sendmail' $path >/dev/null
-	if [ "$?" != 0 ]; then
-		# Write content to correct path (must be appended)
-		cat $TMPDIR/disable-sendmail.rc.conf >> $path
-	fi
+	sysrc sendmail_enable="NO" sendmail_submit_enable="NO" \
+	sendmail_outbound_enable="NO" sendmail_msp_queue_enable="NO"
 }
 
 # Disable some sendmail specific daily maintenance routines
 disable_sendmail_tasks() {
-	path="/etc/periodic.conf"
-
-	# Create temporary file with content
-	echo '
-
-# Disable Sendmail
-daily_clean_hoststat_enable="NO"
-daily_status_mail_rejects_enable="NO"
-daily_status_include_submit_mailq="NO"
-daily_submit_queuerun="NO"
-' > $TMPDIR/disable-sendmail.periodic.conf
-
-	# Avoid Duplicating
-	fgrep '# Disable Sendmail' $path >/dev/null
-	if [ "$?" != 0 ]; then
-		# Write content to correct path (must be appended)
-		cat $TMPDIR/disable-sendmail.periodic.conf >> $path
-	fi
+	sysrc -f /etc/periodic.conf daily_clean_hoststat_enable="NO" \
+	daily_status_mail_rejects_enable="NO" \
+	daily_status_include_submit_mailq="NO" daily_submit_queuerun="NO"
 }
 
 # Enable services at boot
@@ -80,35 +49,13 @@ enable_services() {
 	# Otherwise use the regular rc.conf file.
 	if [ -e /etc/rc.conf.d ]; then
 		path="/etc/rc.conf.d/virtualmin.conf"
-		# Truncate first
-		echo "" > $path
 	else
 		path="/etc/rc.conf"
 	fi
 
-	# Force becuase it's not working otherwise
-	path="/etc/rc.conf"
-
-	# Create temporary file with content
-	echo '
-
-# Virtualmin
-apache24_enable="YES"
-named_enable="YES"
-webmin_enable="YES"
-usermin_enable="YES"
-postfix_enable="YES"
-dovecot_enable="YES"
-mysql_enable="YES"
-postgresql_enable="YES"
-' > $TMPDIR/virtualmin.rc.conf
-
-	# Avoid Duplicating
-	fgrep '# Virtualmin' $path >/dev/null
-	if [ "$?" != 0 ]; then
-		# Write content to correct path (must be appended)
-		cat $TMPDIR/virtualmin.rc.conf >> $path
-	fi
+	sysrc -f $path apache${APACHE_VERSION}_enable="YES" named_enable="YES" webmin_enable="YES" \
+	usermin_enable="YES" postfix_enable="YES" dovecot_enable="YES" \
+	mysql_enable="YES" postgresql_enable="YES"
 }
 
 # Set a Webmin directive or add it if it doesn't exist
@@ -148,7 +95,7 @@ add_hostname_to_hosts () {
 	fq_hostname=$(hostname -f)
 	system_ip_address=$(detect_ip | grep "IP:" | awk -F ': ' '{ print $2 }')
 	shortname=$(echo $fq_hostname | cut -d"." -f1)
-	if grep $system_ip_address /etc/hosts; then
+	if grep $system_ip_address /etc/hosts > /dev/null; then
 		logger_info "Entry for IP $system_ip_address exists in /etc/hosts."
 		logger_info "Updating with new hostname."
 		sed -i '' "s/^$system_ip_address\([\s\t]*\).*$/$system_ip_address$(printf '\t')$fq_hostname$(printf '\t')$shortname/" /etc/hosts
@@ -174,7 +121,7 @@ setup_pkg_repos() {
 	echo 'FreeBSD: { enabled: no }' > $CONFIG_BASE/pkg/repos/FreeBSD.conf
 
 	# Enable Virtualman repository
-	echo -e 'Virtualmin: {\n\t url: "http://pkg.morante.net/virtualmin/${ABI}",\n\t enabled: yes\n}' > $CONFIG_BASE/pkg/repos/Virtualmin.conf
+	echo -e 'Virtualmin: {\n\t url: "'"${REPO_URL}"'",\n\t enabled: yes\n}' > $CONFIG_BASE/pkg/repos/Virtualmin.conf
 
 	# Update repositories
 	pkg update

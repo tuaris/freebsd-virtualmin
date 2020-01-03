@@ -26,10 +26,21 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+set -e
+
 # FreeBSD should have fetch installed by default.
 export FETCH=$(which fetch)
 export TAR=$(which tar)
-export OS_VERSION=$(uname -r | cut -d'-' -f1)
+
+# Continue to support versions older than 10-RELEASE (for now)
+if $(which freebsd-version > /dev/null); then
+	export OS_VERSION=$(/bin/freebsd-version | awk -F '-' '{ print $1}')
+	export PRE10_RELEASE=false
+else
+	export OS_VERSION=$(uname -r | cut -d'-' -f1)
+	export PRE10_RELEASE=true
+fi
+
 export LOG=~/virtualmin-install.log
 
 ############################
@@ -39,6 +50,12 @@ export LOG=~/virtualmin-install.log
 # Make sure we are on FreeBSD
 if [ "$OSTYPE" != "FreeBSD" ]; then
 	echo "Fatal Error: This Virtualmin install script is for FreeBSD"
+	exit 1
+fi
+
+# Currently we support FreeBSD 9.x thru 12.x
+if [ $(echo $OS_VERSION | awk -F '.' '{ print $1 }') -lt "9" ]; then
+	echo "Fatal Error: This script requires at least FreeBSD version 9.x"
 	exit 1
 fi
 
@@ -87,6 +104,7 @@ $TAR -xzf $TMPDIR/freebsd-virtualmin.tar.xz -C $srcdir
 chmod +x $srcdir/spinner
 
 # Load Libraries
+. $srcdir/packages.subr
 . $srcdir/util.subr
 . $srcdir/system.subr
 . $srcdir/install.subr
@@ -96,6 +114,7 @@ chmod +x $srcdir/spinner
 ##########################
 
 setup_pkg_repos
+set +e
 init_logging
 generate_self_signed_ssl_certificate
 

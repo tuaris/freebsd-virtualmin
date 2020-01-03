@@ -2,29 +2,29 @@
 
 install_core_services() {
 	# Install base services
-	pkg install -y virtualmin usermin bind910 apache24
+	pkg install -y $PKG_VIRTUALMIN $PKG_USERMIN $PKG_BIND $PKG_APACHE
 
 	# Install PHP
-	pkg install -y lang/php56 www/mod_php56 www/mod_fcgid
+	pkg install -y $PKG_PHP $PKG_MODPHP $PKG_MODFCGID
 
 	# Install Mail services
 	export POSTFIX_DEFAULT_MTA=yes
 	export BATCH=yes
-	pkg install -y mail/postfix mail/dovecot2 mail/procmail mail/spamassassin security/clamav
+	pkg install -y $PKG_POSTFIX $PKG_DOVECOT $PKG_PROCMAIL $PKG_SPAMASSASSIN $PKG_CLAMAV
 
 	# Install FTP Server
-	pkg install -y ftp/proftpd
+	pkg install -y $PKG_FTPD
 
 	# Install MySQL Database Server
-	pkg install -y mysql56-server databases/p5-DBD-mysql
+	pkg install -y $PKG_MYSQL $PKG_MYSQL_PERL
 
 	# Install PostgreSQL Server
-	pkg install -y postgresql94-server databases/p5-DBD-pg
+	pkg install -y $PKG_POSTGRE $PKG_POSTGRE_PERL
 }
 
 install_core_utilities() {
 	# Install Supporting Packages
-	pkg install -y webalizer logrotate databases/p5-DBD-SQLite2
+	pkg install -y $PKG_WEBALIZER $PKG_LOGROTATE $PKG_SQLITE_PERL
 
 	# Logrotate expects this file to exist otherwise it won't run
 	touch /var/log/lastlog
@@ -55,7 +55,7 @@ setup_dovecot () {
 # Ensures a fully qualified hostname is properly setup for this system
 setup_hostname () {
 	logger_info "Checking for fully qualified hostname..."
-	name=`hostname -f`
+	name=$(hostname -f)
 	if ! is_fully_qualified $name; then set_hostname
 		elif [ "$forcehostname" != "" ]; then set_hostname
 	fi
@@ -277,21 +277,23 @@ NOTUSEED_post_install_tasks(){
 
 setup_apache () {
 	# Enable Modules
-	sed -i '' -e "s/#LoadModule suexec_module/LoadModule suexec_module/" $LOCAL_BASE/etc/apache24/httpd.conf
-	sed -i '' -e "s/#LoadModule actions_module/LoadModule actions_module/" $LOCAL_BASE/etc/apache24/httpd.conf
-	sed -i '' -e "s/#LoadModule rewrite_module/LoadModule rewrite_module/" $LOCAL_BASE/etc/apache24/httpd.conf
-	sed -i '' -e "s/#LoadModule ssl_module/LoadModule ssl_module/" $LOCAL_BASE/etc/apache24/httpd.conf
-	sed -i '' -e "s/#LoadModule socache_shmcb_module/LoadModule socache_shmcb_module/" $LOCAL_BASE/etc/apache24/httpd.conf
+	sed -i '' -e "s/#LoadModule suexec_module/LoadModule suexec_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
+	sed -i '' -e "s/#LoadModule actions_module/LoadModule actions_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
+	sed -i '' -e "s/#LoadModule rewrite_module/LoadModule rewrite_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
+	sed -i '' -e "s/#LoadModule ssl_module/LoadModule ssl_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
+	sed -i '' -e "s/#LoadModule socache_shmcb_module/LoadModule socache_shmcb_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
+	sed -i '' -e "s/#LoadModule cgid_module/LoadModule cgid_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
+	sed -i '' -e "s/#LoadModule cgi_module/LoadModule cgi_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
 
 	# Enable Sample SSL Virtual Host
-	sed -i '' -e "s:#Include etc/apache24/extra/httpd-ssl.conf:Include etc/apache24/extra/httpd-ssl.conf:" $LOCAL_BASE/etc/apache24/httpd.conf
+	sed -i '' -e "s:#Include etc/apache${APACHE_VERSION}/extra/httpd-ssl.conf:Include etc/apache${APACHE_VERSION}/extra/httpd-ssl.conf:" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
 
 	# Install Sample SSL Certificate and Key
-	cp $TMPDIR/cert.pem $LOCAL_BASE/etc/apache24/server.crt
-	cp $TMPDIR/key.pem $LOCAL_BASE/etc/apache24/server.key
+	cp $TMPDIR/cert.pem $LOCAL_BASE/etc/apache${APACHE_VERSION}/server.crt
+	cp $TMPDIR/key.pem $LOCAL_BASE/etc/apache${APACHE_VERSION}/server.key
 
 	# Enable mod_fcgid
-	echo 'LoadModule fcgid_module libexec/apache24/mod_fcgid.so' > $CONFIG_BASE/apache24/modules.d/000_mod_fcgid.conf
+	echo "LoadModule fcgid_module libexec/apache${APACHE_VERSION}/mod_fcgid.so" > $CONFIG_BASE/apache${APACHE_VERSION}/modules.d/000_mod_fcgid.conf
 
 	# Load accept filter into kernel
 	touch /boot/loader.conf
@@ -315,21 +317,21 @@ setup_postgresql () {
 }
 
 webmin_configure_apache() {
-	# Use Apache 2.4
-	sed -i '' -e "s/apache22\//apache24\//" $WEBMIN_CONFIG_DIR/apache/config
+	# Use Correct Apache Version
+	sed -i '' -e "s/apache22\//apache${APACHE_VERSION}\//" $WEBMIN_CONFIG_DIR/apache/config
 
 	# Configure Webmin to know how to stop, start, restart, and reload
-	setconfig "stop_cmd=${SERVICE} apache24 stop" $WEBMIN_CONFIG_DIR/apache/config
-	setconfig "start_cmd=${SERVICE} apache24 start" $WEBMIN_CONFIG_DIR/apache/config
-	setconfig "graceful_cmd=${SERVICE} apache24 reload" $WEBMIN_CONFIG_DIR/apache/config
-	setconfig "apply_cmd=${SERVICE} apache24 restart" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "stop_cmd=${SERVICE} apache${APACHE_VERSION} stop" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "start_cmd=${SERVICE} apache${APACHE_VERSION} start" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "graceful_cmd=${SERVICE} apache${APACHE_VERSION} reload" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "apply_cmd=${SERVICE} apache${APACHE_VERSION} restart" $WEBMIN_CONFIG_DIR/apache/config
 
 	# Setup Modular Virtual Hosting
-	mkdir -p $CONFIG_BASE/apache24/sites-available
-	mkdir -p $CONFIG_BASE/apache24/sites-enabled
-	echo -e '# Virtuamin Virtual Hosting\nIncludeOptional etc/apache24/sites-enabled/*.conf' > $CONFIG_BASE/apache24/Includes/virtuamin.conf
-	setconfig "link_dir=$CONFIG_BASE/apache24/sites-enabled" $WEBMIN_CONFIG_DIR/apache/config
-	setconfig "virt_file=$CONFIG_BASE/apache24/sites-available" $WEBMIN_CONFIG_DIR/apache/config
+	mkdir -p $CONFIG_BASE/apache${APACHE_VERSION}/sites-available
+	mkdir -p $CONFIG_BASE/apache${APACHE_VERSION}/sites-enabled
+	echo -e "# Virtuamin Virtual Hosting\nIncludeOptional etc/apache${APACHE_VERSION}/sites-enabled/*.conf" > $CONFIG_BASE/apache${APACHE_VERSION}/Includes/virtuamin.conf
+	setconfig "link_dir=$CONFIG_BASE/apache${APACHE_VERSION}/sites-enabled" $WEBMIN_CONFIG_DIR/apache/config
+	setconfig "virt_file=$CONFIG_BASE/apache${APACHE_VERSION}/sites-available" $WEBMIN_CONFIG_DIR/apache/config
 
 	# Default to using php-fcgi execution for all new sites
 	setconfig "php_suexec=2" $WEBMIN_CONFIG_DIR/virtual-server/config

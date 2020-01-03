@@ -1,0 +1,44 @@
+#!/bin/sh
+
+# Virtualmin PKG repository
+REPO_URL=http://pkg.morante.net/virtualmin/\${ABI}
+
+# Application Server versions
+APACHE_VERSION=24
+PHP_VERSION=73
+MYSQL_VERSION=57
+POSTGRE_VERSION=94
+NAMED_VERSION=911
+
+# Base services
+PKG_VIRTUALMIN=sysutils/virtualmin
+PKG_USERMIN=sysutils/usermin
+PKG_BIND=dns/bind${NAMED_VERSION}
+PKG_APACHE=www/apache${APACHE_VERSION}
+
+# PHP
+PKG_PHP=lang/php${PHP_VERSION}
+PKG_MODPHP=www/mod_php${PHP_VERSION}
+PKG_MODFCGID=www/mod_fcgid
+
+# Mail Services
+PKG_POSTFIX=mail/postfix
+PKG_DOVECOT=mail/dovecot
+PKG_PROCMAIL=mail/procmail
+PKG_SPAMASSASSIN=mail/spamassassin
+PKG_CLAMAV=security/clamav
+
+# FTP
+PKG_FTPD=ftp/proftpd
+
+# MySQL & PostgreSQL Database Server
+PKG_MYSQL=databases/mysql${MYSQL_VERSION}-server
+PKG_POSTGRE=databases/postgresql${POSTGRE_VERSION}-server
+PKG_MYSQL_PERL=databases/p5-DBD-mysql
+PKG_POSTGRE_PERL=databases/p5-DBD-pg
+
+# Other
+PKG_WEBALIZER=www/webalizer
+PKG_LOGROTATE=sysutils/logrotate
+PKG_SQLITE_PERL=databases/p5-DBD-SQLite2
+PKG_LOG4SH=devel/log4sh

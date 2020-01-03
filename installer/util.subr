@@ -66,7 +66,7 @@ init_logging() {
 	# Setup log4sh so we can start keeping a proper log while also feeding output
 	# to the console.
 	echo "Loading log4sh logging library..."
-	if pkg install -y log4sh
+	if pkg install -y $PKG_LOG4SH
 	then 
 		# source log4sh (disabling properties file warning)
 		LOG4SH_CONFIGURATION="none" . $LOCAL_BASE/lib/log4sh
