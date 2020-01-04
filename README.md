@@ -10,8 +10,7 @@ PKG repositories and sets up custom PKG repos.
 ## Try it out
 
 ```
-fetch http://ftp.morante.net/pub/FreeBSD/extra/virtualmin/install-beta.sh
-sh install-beta.sh
+fetch -o - http://ftp.morante.net/pub/FreeBSD/extra/virtualmin/install.sh | sh
 ```
 
 ### What works
