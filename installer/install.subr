@@ -39,8 +39,14 @@ setup_dovecot () {
 	cp $CONFIG_BASE/dovecot/example-config/dovecot.conf $CONFIG_BASE/dovecot/
 	cp -R $CONFIG_BASE/dovecot/example-config/conf.d $CONFIG_BASE/dovecot/
 
-	# Make sdjustments as needed
-	sed -i '' -e "s/#protocols = imap pop3 lmtp/protocols = imap pop3 lmtp/" $LOCAL_BASE/etc/dovecot/dovecot.conf
+	# Uncomment the protocols line
+	# DISABLED - Since Dovecot 2.3 the submission service is enabled by default
+	#sed -i '' -r 's/^#?[[:space:]]*(protocols[[:space:]]*=.*)$/\1/' $LOCAL_BASE/etc/dovecot/dovecot.conf
+	
+	# Enable only imap pop3 lmtp
+	sed -i '' -r 's/^#?[[:space:]]*(protocols[[:space:]]*=.*)$/protocols = imap pop3 lmtp/' $LOCAL_BASE/etc/dovecot/dovecot.conf
+
+	# Setup webmin configiration
 	setconfig "ssl_cert= <$LOCAL_BASE/etc/ssl/certs/dovecot.pem" "$LOCAL_BASE/etc/dovecot/conf.d/10-ssl.conf"
 	setconfig "ssl_key= <$LOCAL_BASE/etc/ssl/private/dovecot.pem" "$LOCAL_BASE/etc/dovecot/conf.d/10-ssl.conf"
 
@@ -295,18 +301,15 @@ setup_apache () {
 	# Enable mod_fcgid
 	echo "LoadModule fcgid_module libexec/apache${APACHE_VERSION}/mod_fcgid.so" > $CONFIG_BASE/apache${APACHE_VERSION}/modules.d/000_mod_fcgid.conf
 
-	# Load accept filter into kernel
-	touch /boot/loader.conf
-	if ! grep -qv 'accf_http_load="YES"' /boot/loader.conf; then
-		echo 'accf_http_load="YES"' >>/boot/loader.conf
-		kldload accf_http
-	fi
+	# Load accept filter into kernel if not already loaded
+	sysrc -f /boot/loader.conf accf_http_load="YES"
+	if ! kldstat -m accf_http > /dev/null 2>&1; then kldload accf_http; fi
 }
 
 setup_mysql () {
 	# Setup Default MySQL Settings
-	logger_info "Copying default my.cnf and initializing database..."
-	testcp $LOCAL_BASE/share/mysql/my-default.cnf $CONFIG_BASE/my.cnf
+	# logger_info "Copying default my.cnf and initializing database..."	
+	# No action needed at this time
 }
 
 setup_postgresql () {

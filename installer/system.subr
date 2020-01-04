@@ -45,15 +45,7 @@ disable_sendmail_tasks() {
 
 # Enable services at boot
 enable_services() {
-	# If there is an rc.conf.d directory, use that
-	# Otherwise use the regular rc.conf file.
-	if [ -e /etc/rc.conf.d ]; then
-		path="/etc/rc.conf.d/virtualmin.conf"
-	else
-		path="/etc/rc.conf"
-	fi
-
-	sysrc -f $path apache${APACHE_VERSION}_enable="YES" named_enable="YES" webmin_enable="YES" \
+	sysrc apache${APACHE_VERSION}_enable="YES" named_enable="YES" webmin_enable="YES" \
 	usermin_enable="YES" postfix_enable="YES" dovecot_enable="YES" \
 	mysql_enable="YES" postgresql_enable="YES"
 }
@@ -171,10 +163,15 @@ EOF
 # Starts all the background services
 start_services () {
 	logger_info "Sarting all required services"
-	local_services='named apache24 postfix dovecot mysql-server postgresql webmin usermin'
+	local_services="named apache${APACHE_VERSION} postfix dovecot mysql-server postgresql webmin usermin"
 
 	for local_service in $local_services; do
-		$SERVICE $local_service start
+		STATUS=$($SERVICE $local_service status)
+		if [ $? -gt 0 ]; then
+			$SERVICE $local_service start
+		else
+			$SERVICE $local_service restart
+		fi
 	done
 }
 
