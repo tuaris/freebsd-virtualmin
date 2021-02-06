@@ -79,6 +79,7 @@ setup_postfix () {
 
 	# Use Maildir's
 	postconf home_mailbox=Maildir/
+	postconf mailbox_command="$(which procmail) -a \"\$EXTENSION\""
 
 	# Setup SASL
 	postconf -e smtpd_sasl_type=dovecot
@@ -283,13 +284,15 @@ NOTUSEED_post_install_tasks(){
 
 setup_apache () {
 	# Enable Modules
-	sed -i '' -e "s/#LoadModule suexec_module/LoadModule suexec_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
-	sed -i '' -e "s/#LoadModule actions_module/LoadModule actions_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
-	sed -i '' -e "s/#LoadModule rewrite_module/LoadModule rewrite_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
-	sed -i '' -e "s/#LoadModule ssl_module/LoadModule ssl_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
-	sed -i '' -e "s/#LoadModule socache_shmcb_module/LoadModule socache_shmcb_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
-	sed -i '' -e "s/#LoadModule cgid_module/LoadModule cgid_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
-	sed -i '' -e "s/#LoadModule cgi_module/LoadModule cgi_module/" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
+	a2enmod suexec_module
+	a2enmod actions_module
+	a2enmod rewrite_module
+	a2enmod ssl_module
+	a2enmod socache_shmcb_module
+	a2enmod cgid_module
+	a2enmod cgi_module
+	a2enmod proxy_module
+	a2enmod proxy_fcgi_module
 
 	# Enable Sample SSL Virtual Host
 	sed -i '' -e "s:#Include etc/apache${APACHE_VERSION}/extra/httpd-ssl.conf:Include etc/apache${APACHE_VERSION}/extra/httpd-ssl.conf:" $LOCAL_BASE/etc/apache${APACHE_VERSION}/httpd.conf
@@ -336,6 +339,8 @@ webmin_configure_apache() {
 	setconfig "link_dir=$CONFIG_BASE/apache${APACHE_VERSION}/sites-enabled" $WEBMIN_CONFIG_DIR/apache/config
 	setconfig "virt_file=$CONFIG_BASE/apache${APACHE_VERSION}/sites-available" $WEBMIN_CONFIG_DIR/apache/config
 
+	# Default to using php-fpm execution for all new sites (Currently broken: https://www.virtualmin.com/node/70648)
+	#setconfig "php_suexec=3" $WEBMIN_CONFIG_DIR/virtual-server/config
 	# Default to using php-fcgi execution for all new sites
 	setconfig "php_suexec=2" $WEBMIN_CONFIG_DIR/virtual-server/config
 
@@ -393,7 +398,7 @@ webmin_configure_dovecot() {
 
 webmin_configure_mysql() {
 	# Set correct configuration file location
-	setconfig "my_cnf=$CONFIG_BASE/my.cnf" $WEBMIN_CONFIG_DIR/mysql/config
+	setconfig "my_cnf=$CONFIG_BASE/mysql/my.cnf" $WEBMIN_CONFIG_DIR/mysql/config
 
 	# Configure Webmin to know how to stop and start MySQL
 	setconfig "start_cmd=${SERVICE} mysql-server start" $WEBMIN_CONFIG_DIR/mysql/config

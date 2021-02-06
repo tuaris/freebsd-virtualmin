@@ -62,6 +62,48 @@ setconfig () {
 	fi
 }
 
+a2enmod () {
+	module_name=$1
+	conf_file=${LOCAL_BASE}/etc/apache${APACHE_VERSION}/httpd.conf
+	
+	if [ ! -z "$2" ]; then 
+		conf_file=$2
+	fi
+
+	if [ ! -f "$conf_file" ]; then 
+		echo "Invalid configuration file."
+		return 2
+	fi
+
+	if [ -z "$module_name" ]; then 
+		echo "Module name not specified"
+		return 3
+	fi
+
+	sed -i '' 's,^#\(LoadModule '${module_name}'.*$\),\1,g' $conf_file
+}
+
+a2dismod () {
+	module_name=$1
+	conf_file=${LOCAL_BASE}/etc/apache${APACHE_VERSION}/httpd.conf
+	
+	if [ ! -z "$2" ]; then 
+		conf_file=$2
+	fi	
+
+	if [ ! -f "$conf_file" ]; then 
+		echo "Invalid configuration file."
+		return 2
+	fi
+
+	if [ -z "$module_name" ]; then 
+		echo "Module name not specified"
+		return 3
+	fi
+
+	sed -i '' 's,^\(LoadModule '${module_name}'.*$\),#\1,g' $conf_file
+}
+
 # Sets the system hostname
 set_hostname () {
 	i=0
