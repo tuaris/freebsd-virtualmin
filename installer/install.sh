@@ -164,6 +164,6 @@ fi
 ##########################
 
 start_services
-add_local_namesever_ip
+resolvconf_local_nameserver_ip
 
 logger_info "Installation is complete.  You may now login to Virtualmin at https://$(hostname -f):10000 (https://$(getent hosts $(hostname -f) | awk '{ print $1 }'):10000)"

@@ -4,7 +4,7 @@ export SERVICE=$(which service)
 
 # Detects the System's primary IP address
 detect_ip () {
-	primaryaddr=`/sbin/ifconfig | grep inet | cut -d " " -f 2 | head -n1`
+	primaryaddr=`/sbin/ifconfig -a -u -G lo | grep inet | cut -d " " -f 2 | head -n1`
 	if [ $primaryaddr ]; then
 		logger_info "Primary address detected as $primaryaddr"
 		address=$primaryaddr
@@ -17,7 +17,7 @@ detect_ip () {
 		primaryaddr=`/sbin/ifconfig $primaryinterface | grep 'inet' | cut -d " " -f2 | head -n1`
 		if [ "$primaryaddr" = "" ]; then
 			# Try again with FreeBSD format
-			primaryaddr=`/sbin/ifconfig $primaryinterface|grep 'inet' | awk '{ print $2 }'`
+			primaryaddr=`/sbin/ifconfig $primaryinterface | grep 'inet' | awk '{ print $2 }'`
 		fi
 		if [ $primaryaddr ]; then
 			logger_info "Primary address detected as $primaryaddr"
@@ -86,7 +86,7 @@ set_hostname () {
 add_hostname_to_hosts () {
 	fq_hostname=$(hostname -f)
 	system_ip_address=$(detect_ip | grep "IP:" | awk -F ': ' '{ print $2 }')
-	shortname=$(echo $fq_hostname | cut -d"." -f1)
+	shortname=$(hostname -s)
 	if grep $system_ip_address /etc/hosts > /dev/null; then
 		logger_info "Entry for IP $system_ip_address exists in /etc/hosts."
 		logger_info "Updating with new hostname."
@@ -116,7 +116,7 @@ setup_pkg_repos() {
 	echo -e 'Virtualmin: {\n\t url: "'"${REPO_URL}"'",\n\t enabled: yes\n}' > $CONFIG_BASE/pkg/repos/Virtualmin.conf
 
 	# Update repositories
-	pkg update
+	pkg update -f
 }
 
 # Copy a file if the destination doesn't exist
@@ -175,6 +175,8 @@ start_services () {
 	done
 }
 
+# Deprecated
+# Use `resolvconf_local_nameserver_ip` instead.  Fallsback to this if that fails.
 add_local_namesever_ip () {
 	nameserevr_IP="127.0.0.1"
 	etc_resolv_conf=/etc/resolv.conf
@@ -197,4 +199,37 @@ add_local_namesever_ip () {
 		# Add namesrver entry
 		echo "nameserver $nameserevr_IP" >> $etc_resolv_conf
 	fi
+}
+
+resolvconf_local_nameserver_ip () {
+
+	# Fallback to using `add_local_namesever_ip` if resovconf doesn't exist.
+	which resolvconf >/dev/null
+	if [ "$?" != 0 ]; then
+		add_local_namesever_ip $@
+		return 0
+	fi
+
+	nameserevr_IP="127.0.0.1"
+	search_domain=$(hostname -d)
+
+	if [ ! -z "$1" ]; then 
+		nameserevr_IP=$1
+	fi
+
+	if [ ! -z "$2" ]; then 
+		search_domain=$2
+	fi
+
+	valid_ip=$(is_valid_ip "$nameserevr_IP")
+	if [ "$?" != 0 ]; then 
+		echo "Invalid IP address."
+		return 2
+	fi
+
+	logger_info "Configuring local resolver using using resolvconf."
+	logger_info "Setting: search_domains=\"${search_domain}\" name_servers=\"${nameserevr_IP}\"."
+	touch /etc/resolvconf.conf
+	sysrc -f /etc/resolvconf.conf search_domains="${search_domain}" name_servers="${nameserevr_IP}"
+	resolvconf -u
 }
