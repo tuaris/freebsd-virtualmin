@@ -20,6 +20,9 @@ install_core_services() {
 
 	# Install PostgreSQL Server
 	pkg install -y $PKG_POSTGRE $PKG_POSTGRE_PERL
+
+	# Install OpenLDAP Server
+	pkg install -y $PKG_OPENLDAP $PKG_LDAP_PERL
 }
 
 install_core_utilities() {
@@ -66,6 +69,41 @@ setup_hostname () {
 		elif [ "$forcehostname" != "" ]; then set_hostname
 	fi
 	add_hostname_to_hosts
+}
+
+setup_openldap () {
+	# Set correct location for API service socket to /var/run/openldap/ldapi
+	sysrc slapd_flags='-h "ldapi://%2fvar%2frun%2fopenldap%2fldapi/ ldap://0.0.0.0/"' slapd_sockets="/var/run/openldap/ldapi"
+
+	# Config file to edit
+	conf_file=/usr/local/etc/openldap/slapd.conf
+
+	# Enable MDB backend
+	sed -i '' 's,^#[[:space:]]*\(moduleload[[:space:]]*back_mdb.*$\),\1,g' $conf_file
+
+	# Set the Root DN (suffix) to the search domain of this system
+	suffix=$(hostname -d | awk -F . '{for ( i=1 ; i <= NF ; i++ ) { printf "dc=" $i; if (i != NF) printf ","}}')
+	sed -i '' 's#^\(suffix[[:space:]]*\).*$#\1"'$suffix'"#g' $conf_file
+
+	# Set the administrator username
+	rootdn="cn=Manager,"${suffix}
+	sed -i '' 's#^\(rootdn[[:space:]]*\).*$#\1"'$rootdn'"#g' $conf_file
+
+	# Set the password
+	rootpw=$(dd if=/dev/random bs=8 count=1 2>/dev/null| openssl base64)
+	sed -i '' 's,^\(rootpw[[:space:]]*\).*$,\1'$rootpw',g' $conf_file
+
+	# Add the 'cosine' scheme (required for nis schema)
+	if [ $(head -50 "${conf_file}" | grep -q "schema/cosine.schema"; echo $?) == 1 ]; \
+	then echo -e '/^include.*core\.schema$/\na\ninclude /usr/local/etc/openldap/schema/cosine.schema\n.\nw\n' | \
+	ed -s $conf_file >/dev/null; \
+	fi
+
+	# Add the 'nis' scheme (required for virtualmin)
+	if [ $(head -50 "${conf_file}" | grep -q "schema/nis.schema"; echo $?) == 1 ]; \
+	then echo -e '/^include.*cosine\.schema$/\na\ninclude /usr/local/etc/openldap/schema/nis.schema\n.\nw\n' | \
+	ed -s $conf_file >/dev/null; \
+	fi
 }
 
 setup_postfix () {
@@ -402,6 +440,10 @@ webmin_configure_mysql() {
 	# Configure Webmin to know how to stop and start MySQL
 	setconfig "start_cmd=${SERVICE} mysql-server start" $WEBMIN_CONFIG_DIR/mysql/config
 	setconfig "stop_cmd=${SERVICE} mysql-server stop" $WEBMIN_CONFIG_DIR/mysql/config
+}
+
+webmin_configure_openldap() {
+
 }
 
 webmin_configure_postgresql() {

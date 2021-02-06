@@ -47,7 +47,7 @@ disable_sendmail_tasks() {
 enable_services() {
 	sysrc apache${APACHE_VERSION}_enable="YES" named_enable="YES" webmin_enable="YES" \
 	usermin_enable="YES" postfix_enable="YES" dovecot_enable="YES" \
-	mysql_enable="YES" postgresql_enable="YES"
+	mysql_enable="YES" postgresql_enable="YES" slapd_enable="YES"
 }
 
 # Set a Webmin directive or add it if it doesn't exist
@@ -205,7 +205,7 @@ EOF
 # Starts all the background services
 start_services () {
 	logger_info "Sarting all required services"
-	local_services="named apache${APACHE_VERSION} postfix dovecot mysql-server postgresql webmin usermin"
+	local_services="named apache${APACHE_VERSION} postfix dovecot mysql-server postgresql slapd webmin usermin"
 
 	for local_service in $local_services; do
 		STATUS=$($SERVICE $local_service status)

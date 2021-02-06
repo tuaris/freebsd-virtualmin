@@ -137,6 +137,7 @@ setup_postfix
 setup_dovecot
 setup_mysql
 setup_postgresql
+setup_openldap
 
 setup_webmin
 setup_usermin
@@ -146,6 +147,7 @@ webmin_configure_apache
 webmin_configure_dovecot
 webmin_configure_mysql
 webmin_configure_postgresql
+webmin_configure_openldap
 
 install_virtualmin_modules
 

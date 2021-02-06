@@ -37,6 +37,10 @@ PKG_POSTGRE=databases/postgresql${POSTGRE_VERSION}-server
 PKG_MYSQL_PERL=databases/p5-DBD-mysql
 PKG_POSTGRE_PERL=databases/p5-DBD-pg
 
+# LDAP Components
+PKG_OPENLDAP=net/openldap24-server
+PKG_LDAP_PERL=net/p5-perl-ldap
+
 # Other
 PKG_WEBALIZER=www/webalizer
 PKG_LOGROTATE=sysutils/logrotate
