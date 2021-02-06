@@ -319,7 +319,6 @@ setup_postgresql () {
 	# PostgreSQL needs to be initialized
 	logger_info "Initializing postgresql database..."
 	runner "${SERVICE} postgresql oneinitdb"
-	runner "${SERVICE} postgresql onestop"
 }
 
 webmin_configure_apache() {

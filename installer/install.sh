@@ -152,14 +152,6 @@ install_virtualmin_modules
 enable_services
 
 ##########################
-# Clean Up
-##########################
-
-if [ -e "$TMPDIR" ]; then
-	rm -rf $TMPDIR
-fi
-
-##########################
 # Complete
 ##########################
 
@@ -167,3 +159,11 @@ start_services
 resolvconf_local_nameserver_ip
 
 logger_info "Installation is complete.  You may now login to Virtualmin at https://$(hostname -f):10000 (https://$(getent hosts $(hostname -f) | awk '{ print $1 }'):10000)"
+
+##########################
+# Clean Up
+##########################
+
+if [ -e "$TMPDIR" ]; then
+	rm -rf $TMPDIR
+fi
