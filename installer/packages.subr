@@ -40,6 +40,8 @@ PKG_POSTGRE_PERL=databases/p5-DBD-pg
 # LDAP Components
 PKG_OPENLDAP=net/openldap24-server
 PKG_LDAP_PERL=net/p5-perl-ldap
+PKG_PAM_LDAP=security/pam_ldap
+PKG_NSS_LDAP=net/nss_ldap
 
 # Other
 PKG_WEBALIZER=www/webalizer

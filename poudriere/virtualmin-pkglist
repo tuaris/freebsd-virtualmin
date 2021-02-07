@@ -27,3 +27,7 @@ sysutils/logrotate
 www/webalizer
 security/clamav
 ftp/proftpd
+net/openldap24-server
+net/p5-perl-ldap
+security/pam_ldap
+net/nss_ldap

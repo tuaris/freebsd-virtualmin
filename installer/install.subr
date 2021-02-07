@@ -22,12 +22,15 @@ install_core_services() {
 	pkg install -y $PKG_POSTGRE $PKG_POSTGRE_PERL
 
 	# Install OpenLDAP Server
-	pkg install -y $PKG_OPENLDAP $PKG_LDAP_PERL
+	[ $SKIP_LDAP_SERVER_INSTALL -eq 0 ] && pkg install -y $PKG_OPENLDAP $PKG_LDAP_PERL
 }
 
 install_core_utilities() {
 	# Install Supporting Packages
 	pkg install -y $PKG_WEBALIZER $PKG_LOGROTATE $PKG_SQLITE_PERL
+
+	# These packages are required for LDAP authentication
+	pkg install -y $PKG_PAM_LDAP $PKG_NSS_LDAP
 
 	# Logrotate expects this file to exist otherwise it won't run
 	touch /var/log/lastlog
@@ -72,6 +75,20 @@ setup_hostname () {
 }
 
 setup_openldap () {
+	# Configure the LDAP client
+	ldap_configure_client
+
+	# Skip server setup if using a remote or existing server
+	[ $SKIP_LDAP_SERVER_INSTALL -eq 1 ] && return 0
+
+	# Configure the local LDAP server
+	ldap_confifure_server
+
+	# Offline load of initial schema
+	ldap_load_schema
+}
+
+ldap_confifure_server () {
 	# Set correct location for API service socket to /var/run/openldap/ldapi
 	sysrc slapd_flags='-h "ldapi://%2fvar%2frun%2fopenldap%2fldapi/ ldap://0.0.0.0/"' slapd_sockets="/var/run/openldap/ldapi"
 
@@ -82,7 +99,7 @@ setup_openldap () {
 	sed -i '' 's,^#[[:space:]]*\(moduleload[[:space:]]*back_mdb.*$\),\1,g' $conf_file
 
 	# Set the Root DN (suffix) to the search domain of this system
-	suffix=$(hostname -d | awk -F . '{for ( i=1 ; i <= NF ; i++ ) { printf "dc=" $i; if (i != NF) printf ","}}')
+	suffix=$LDAP_BASE_DN
 	sed -i '' 's#^\(suffix[[:space:]]*\).*$#\1"'$suffix'"#g' $conf_file
 
 	# Set the administrator username
@@ -104,6 +121,32 @@ setup_openldap () {
 	then echo -e '/^include.*cosine\.schema$/\na\ninclude /usr/local/etc/openldap/schema/nis.schema\n.\nw\n' | \
 	ed -s $conf_file >/dev/null; \
 	fi
+}
+
+ldap_configure_client () {
+	# Config file to edit
+	conf_file=/usr/local/etc/openldap/ldap.conf
+
+	sed -i '' 's|^#\(URI[[:space:]]*\).*$|\1'$LDAP_URI'|gi' $conf_file
+	sed -i '' 's|^#\(BASE[[:space:]]*\).*$|\1'$LDAP_BASE_DN'|gi' $conf_file
+}
+
+ldap_load_schema () {
+	# Create Users organizational unit
+cat <<EOF | slapadd
+dn: ou=Users,${LDAP_BASE_DN}
+objectClass: top
+objectClass: organizationalUnit
+ou: Users
+EOF
+
+	# Create Groups organizational unit
+cat <<EOF | slapadd
+dn: ou=Groups,${LDAP_BASE_DN}
+objectClass: top
+objectClass: organizationalUnit
+ou: Groups
+EOF
 }
 
 setup_postfix () {

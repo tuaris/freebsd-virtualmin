@@ -275,3 +275,20 @@ resolvconf_local_nameserver_ip () {
 	sysrc -f /etc/resolvconf.conf search_domains="${search_domain}" name_servers="${nameserevr_IP}"
 	resolvconf -u
 }
+
+config_discovery_ldap () {
+	if [ -z "${LDAP_URI}" ]; then
+		# If not provided via env variable, set it to the hostname of this system
+		export LDAP_URI="ldap://"$(hostname -f)
+	fi
+
+	if [ -z "${LDAP_BASE_DN}" ]; then
+		# If not provided via env variable, set it to the search domain of this system
+		export LDAP_BASE_DN=$(hostname -d | awk -F . '{for ( i=1 ; i <= NF ; i++ ) { printf "dc=" $i; if (i != NF) printf ","}}')
+	fi
+
+	# Ensure there are values as this is critical
+	if [ -z $(echo $LDAP_URI | tr -d "ldap://") ] || [ -z "${LDAP_BASE_DN}" ]; then 
+		fatal "Unable to auto-discover LDAP configuration. Check your inputs or system hostname. Cannot continue."
+	fi
+}

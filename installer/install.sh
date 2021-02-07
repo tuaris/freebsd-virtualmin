@@ -83,6 +83,11 @@ if [ ! -z "$(mount | grep ${TMPDIR} | grep noexec)" ]; then
 	exit 1
 fi
 
+# Support overrides via env variables.
+# TODO: Move elsewhere?
+[ -z "${LDAP_URI}" ] || [ -z "${LDAP_BASE_DN}" ]
+SKIP_LDAP_SERVER_INSTALL=$?
+
 ##########################
 # Initializtion
 ##########################
@@ -125,6 +130,7 @@ generate_self_signed_ssl_certificate
 logger_info "FreeBSD Operating system version: $OS_VERSION"
 
 setup_hostname
+config_discovery_ldap
 
 install_core_services
 install_core_utilities
