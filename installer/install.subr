@@ -90,7 +90,7 @@ setup_openldap () {
 
 ldap_confifure_server () {
 	# Set correct location for API service socket to /var/run/openldap/ldapi
-	sysrc slapd_flags='-h "ldapi://%2fvar%2frun%2fopenldap%2fldapi/ ldap://0.0.0.0/"' slapd_sockets="/var/run/openldap/ldapi"
+	rm -f /etc/rc.conf.d/openldap.conf; touch /etc/rc.conf.d/openldap.conf && sysrc -f /etc/rc.conf.d/openldap.conf slapd_flags='-h "ldapi://%2fvar%2frun%2fopenldap%2fldapi/ ldap://0.0.0.0/"' slapd_sockets="/var/run/openldap/ldapi"
 
 	# Config file to edit
 	conf_file=/usr/local/etc/openldap/slapd.conf

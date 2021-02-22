@@ -118,8 +118,8 @@ chmod +x $srcdir/spinner
 # System Setup
 ##########################
 
-setup_pkg_repos
 set +e
+setup_pkg_repos
 init_logging
 generate_self_signed_ssl_certificate
 
